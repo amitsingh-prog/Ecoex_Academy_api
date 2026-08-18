@@ -146,7 +146,7 @@ app.UseSwaggerUI();
 // ============================================================
 
 app.UseHttpsRedirection();
-
+app.UseCors("AngularApp");
 
 // ============================================================
 // AUTHENTICATION
