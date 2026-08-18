@@ -119,6 +119,9 @@ namespace Ecoeex_Academy_Api.Controllers
             var order = await _context.tb_Orders.FindAsync(payment.OrderId);
             if (order != null)
             {
+                // IMPORTANT:
+                // CK_Orders_Status only allows:
+                // Pending, Paid, Cancelled
                 order.Status = "Paid";
             }
 
@@ -152,7 +155,10 @@ namespace Ecoeex_Academy_Api.Controllers
             var order = await _context.tb_Orders.FindAsync(payment.OrderId);
             if (order != null)
             {
-                order.Status = "Payment Rejected";
+                // IMPORTANT:
+                // CK_Orders_Status only allows:
+                // Pending, Paid, Cancelled
+                order.Status = "Cancelled";
             }
 
             await _context.SaveChangesAsync();
