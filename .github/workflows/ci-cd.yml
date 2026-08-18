@@ -116,3 +116,94 @@ jobs:
         name: publish-files
 
         path: ./publish
+
+        
+# ==================================================
+# 4. DEPLOY JOB
+# Copy Files To Ubuntu Server
+# ==================================================
+
+  deploy:
+
+
+    needs: publish
+
+    runs-on: ubuntu-latest
+
+
+    steps:
+
+
+    - name: Download Publish Artifact
+      uses: actions/download-artifact@v4
+
+      with:
+
+        name: publish-files
+
+        path: ./publish
+
+
+
+    - name: Copy Files To Server
+      uses: appleboy/scp-action@v0.1.7
+
+      with:
+
+        host: ${{ secrets.HOST }}
+
+        username: ${{ secrets.USERNAME }}
+
+        password: ${{ secrets.PASSWORD }}
+
+
+        source: "./publish/*"
+
+
+        target: "/root/Ecoex/Projects/Ecoex_Academy_AdminPanel/Api/Publish"
+
+
+        overwrite: true
+
+        strip_components: 1
+
+
+
+
+# ==================================================
+# 5. RESTART SERVICE JOB
+# Restart ASP.NET Core Systemd Service
+# ==================================================
+
+  restart-service:
+
+
+    needs: deploy
+
+    runs-on: ubuntu-latest
+
+
+    steps:
+
+
+    - name: Restart ASP.NET Core Service
+
+      uses: appleboy/ssh-action@v1.2.0
+
+
+      with:
+
+        host: ${{ secrets.HOST }}
+
+        username: ${{ secrets.USERNAME }}
+
+        password: ${{ secrets.PASSWORD }}
+
+
+        script: |
+
+          systemctl restart ecoeex-academy-api   
+          systemctl status ecoeex-academy-api   --no-pager
+
+
+ 
