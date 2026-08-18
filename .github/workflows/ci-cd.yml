@@ -1,0 +1,118 @@
+name: ASP.NET Core CI/CD
+
+
+on:
+  push:
+    branches:
+      - main
+
+
+jobs:
+
+
+# ==================================================
+# 1. BUILD JOB
+# Compile ASP.NET Core Application
+# ==================================================
+
+  build:
+
+    runs-on: ubuntu-latest
+
+
+    steps:
+
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+
+    - name: Restore NuGet Packages
+      run: dotnet restore
+
+
+    - name: Build Application
+      run: dotnet build --configuration Release --no-restore
+
+
+
+# ==================================================
+# 2. TEST JOB
+# Run Automated Tests
+# ==================================================
+
+  test:
+
+    needs: build
+
+    runs-on: ubuntu-latest
+
+
+    steps:
+
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+
+    - name: Restore Packages
+      run: dotnet restore
+
+
+    - name: Run Tests
+      run: dotnet test --configuration Release
+
+
+
+# ==================================================
+# 3. PUBLISH JOB
+# Generate Production Files
+# ==================================================
+
+  publish:
+
+
+    needs: test
+
+    runs-on: ubuntu-latest
+
+
+    steps:
+
+
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+
+    - name: Restore Packages
+      run: dotnet restore
+
+
+    - name: Publish Application
+      run: dotnet publish --configuration Release --output ./publish
+
+
+    - name: Upload Publish Artifact
+      uses: actions/upload-artifact@v4
+
+      with:
+
+        name: publish-files
+
+        path: ./publish
