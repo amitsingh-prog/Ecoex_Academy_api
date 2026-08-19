@@ -14,7 +14,7 @@ namespace Ecoeex_Academy_Api.Controllers
         private readonly AppDbContext _context;
         private readonly IEmail_Services _emailService;
 
-        public PaymentController(AppDbContext context , IEmail_Services emailService)
+        public PaymentController(AppDbContext context, IEmail_Services emailService)
         {
             _context = context;
             _emailService = emailService;
@@ -110,7 +110,7 @@ namespace Ecoeex_Academy_Api.Controllers
 
             if (payment.Status == "Approved")
             {
-                return BadRequest(new { message = "Payment already approved." });
+                //  return BadRequest(new { message = "Payment already approved." });
             }
 
             payment.Status = "Approved";

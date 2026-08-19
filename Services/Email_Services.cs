@@ -1,21 +1,30 @@
 ﻿using BCrypt.Net;
-using Ecoeex_Academy_Api.Services;
 using Ecoeex_Academy_Api.Data;
 using Ecoeex_Academy_Api.Model;
+using Ecoeex_Academy_Api.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
+using System.Drawing;
 using System.Net;
 using System.Net.Mail;
+using static System.Net.Mime.MediaTypeNames;
+
+
 namespace Ecoeex_Academy_Api.Services
 {
     public class Email_Services : IEmail_Services
     {
 
         public AppDbContext _context { get; set; }
-        public Email_Services(AppDbContext db)
+        private readonly IWebHostEnvironment _environment;
+        public Email_Services(AppDbContext db, IWebHostEnvironment environment)
         {
             _context = db;
+            _environment = environment;
         }
 
         public class Response
@@ -907,6 +916,11 @@ Empowering professionals with knowledge and skills.
         {
             try
             {
+                string logoPath = Path.Combine(
+    _environment.WebRootPath,
+    "images",
+    "ecoex-logo.png"
+);
                 // ==========================================
                 // GET PAYMENT DETAILS
                 // ==========================================
@@ -916,33 +930,17 @@ Empowering professionals with knowledge and skills.
                         .ThenInclude(x => x.PayerUser)
                     .FirstOrDefaultAsync(x => x.PaymentId == PaymentId);
 
-
                 if (payment == null)
                 {
-                    return new Response
-                    {
-                        Success = false,
-                        Message = "Payment not found."
-                    };
+                    return new Response { Success = false, Message = "Payment not found." };
                 }
-
-
-                // ==========================================
-                // GET USER
-                // ==========================================
 
                 var user = payment.Order.PayerUser;
 
-
                 if (user == null)
                 {
-                    return new Response
-                    {
-                        Success = false,
-                        Message = "User not found."
-                    };
+                    return new Response { Success = false, Message = "User not found." };
                 }
-
 
                 // ==========================================
                 // SMTP CONFIGURATION
@@ -955,53 +953,44 @@ Empowering professionals with knowledge and skills.
                     EnableSsl = true,
                     DeliveryMethod = SmtpDeliveryMethod.Network,
                     UseDefaultCredentials = false,
-                    Credentials = new NetworkCredential(
-                        "info@ecoex.market",
-                        brevokey
-                    )
+                    Credentials = new NetworkCredential("info@ecoex.market", brevokey)
                 };
 
-
-                var fromAddress = new MailAddress(
-                    "info@ecoex.market",
-                    "Ecoex Academy"
-                );
-
-
-                var toAddress = new MailAddress(
-                    user.Email,
-                    user.Name
-                );
-
+                var fromAddress = new MailAddress("info@ecoex.market", "Ecoex Academy");
+                var toAddress = new MailAddress(user.Email, user.Name);
 
                 // ==========================================
                 // PAYMENT DETAILS
                 // ==========================================
 
-                string paymentDate =
-                    payment.SubmittedAt.ToLocalTime()
-                        .ToString("dd MMM yyyy, hh:mm tt");
+                string paymentDate = payment.SubmittedAt.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt");
+                string amount = payment.Order.TotalAmount.ToString("N2");
+                string orderId = payment.Order.OrderId.ToString();
+                string paymentIdStr = payment.PaymentId.ToString();
+                string utr = payment.Utr;
 
+                // ==========================================
+                // GENERATE RECEIPT PDF
+                // ==========================================
 
-                string amount =
-                    payment.Order.TotalAmount
-                        .ToString("N2");
-
-
-                string orderId =
-                    payment.Order.OrderId.ToString();
-
+                byte[] receiptPdfBytes = GenerateReceiptPdf(
+        payerName: user.Name,
+        payerEmail: user.Email,
+        orderId: orderId,
+        paymentId: paymentIdStr,
+        utr: utr,
+        submittedOn: paymentDate,
+        amount: amount,
+        logoPath: logoPath
+    );
 
                 // ==========================================
                 // EMAIL HTML
                 // ==========================================
                 string htmlBody = $@"
 <!DOCTYPE html>
-
 <html>
-
 <head>
-
     <meta charset='UTF-8'>
 
     <style>
@@ -1052,36 +1041,67 @@ Empowering professionals with knowledge and skills.
             margin-bottom: 10px;
         }}
 
+        /* PAYMENT DETAILS */
+
         .details {{
             background: #f8f9fa;
-            padding: 20px;
+            padding: 20px 25px;
             border-radius: 10px;
             margin-top: 20px;
         }}
 
-        .row {{
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid #eeeeee;
+        .details-table {{
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
         }}
 
-        .row:last-child {{
+        .details-table td {{
+            padding: 13px 0;
+            border-bottom: 1px solid #eeeeee;
+            vertical-align: middle;
+        }}
+
+        .details-table .label {{
+            width: 40%;
+            color: #777777;
+            text-align: left;
+            padding-right: 25px;
+            font-size: 14px;
+        }}
+
+        .details-table .value {{
+            width: 60%;
+            font-weight: bold;
+            color: #333333;
+            text-align: right;
+            padding-left: 20px;
+            font-size: 14px;
+            word-break: break-word;
+        }}
+
+        .details-table tr:last-child td {{
             border-bottom: none;
         }}
 
-        .label {{
-            color: #777777;
-        }}
-
-        .value {{
-            font-weight: bold;
-            color: #333333;
-        }}
-
         .approved {{
-            color: #198754;
+            color: #198754 !important;
         }}
+
+        /* LOGO */
+
+        .logo-space {{
+            text-align: center;
+            padding: 5px 0 20px 0;
+        }}
+
+        .logo-space img {{
+            width: 120px;
+            height: auto;
+            display: inline-block;
+        }}
+
+        /* NOTICE */
 
         .notice {{
             background: #e8f5e9;
@@ -1091,12 +1111,16 @@ Empowering professionals with knowledge and skills.
             color: #444444;
         }}
 
+        /* NEXT STEP */
+
         .next-step {{
             background: #f8f9fa;
             padding: 20px;
             border-radius: 10px;
             margin-top: 20px;
         }}
+
+        /* FOOTER */
 
         .footer {{
             margin-top: 30px;
@@ -1119,6 +1143,8 @@ Empowering professionals with knowledge and skills.
 
 <div class='container'>
 
+    <!-- HEADER -->
+
     <div class='header'>
 
         <div class='logo'>
@@ -1133,9 +1159,14 @@ Empowering professionals with knowledge and skills.
 
     <hr>
 
+    <!-- GREETING -->
+
     <h3>
         Hello {user.Name},
     </h3>
+
+
+    <!-- SUCCESS BOX -->
 
     <div class='success-box'>
 
@@ -1148,129 +1179,197 @@ Empowering professionals with knowledge and skills.
         </div>
 
         <p>
-            Your payment has been successfully verified
-            and approved by our team.
+            Your payment has been successfully verified and approved by our team.
         </p>
 
     </div>
+
+
+    <!-- MESSAGE -->
 
     <p>
         Congratulations! 🎉
     </p>
 
     <p>
-        Your payment for <b>Ecoex Academy</b> has been
-        verified successfully. Your registration is now
-        confirmed.
+        Your payment for <b>Ecoex Academy</b> has been verified successfully.
+        Your registration is now confirmed.
+        A copy of your receipt is attached to this email.
     </p>
 
+
+    <!-- PAYMENT DETAILS -->
+
     <div class='details'>
+ 
 
-        <div class='row'>
+        <!-- DETAILS TABLE -->
 
-            <span class='label'>
-                Order ID
-            </span>
+        <table class='details-table'>
 
-            <span class='value'>
-                #{orderId}
-            </span>
+            <tr>
 
-        </div>
+                <td class='label'>
+                    Payer Name
+                </td>
 
-        <div class='row'>
+                <td class='value'>
+                    {user.Name}
+                </td>
 
-            <span class='label'>
-                Amount Paid
-            </span>
+            </tr>
 
-            <span class='value'>
-                ₹{amount}
-            </span>
 
-        </div>
+            <tr>
 
-        <div class='row'>
+                <td class='label'>
+                    Payer Email
+                </td>
 
-            <span class='label'>
-                UTR / Transaction ID
-            </span>
+                <td class='value'>
+                    {user.Email}
+                </td>
 
-            <span class='value'>
-                {payment.Utr}
-            </span>
+            </tr>
 
-        </div>
 
-        <div class='row'>
+            <tr>
 
-            <span class='label'>
-                Payment Date
-            </span>
+                <td class='label'>
+                    Order ID
+                </td>
 
-            <span class='value'>
-                {paymentDate}
-            </span>
+                <td class='value'>
+                    #{orderId}
+                </td>
 
-        </div>
+            </tr>
 
-        <div class='row'>
 
-            <span class='label'>
-                Status
-            </span>
+            <tr>
 
-            <span class='value approved'>
-                Payment Approved
-            </span>
+                <td class='label'>
+                    Payment ID
+                </td>
 
-        </div>
+                <td class='value'>
+                    #{paymentIdStr}
+                </td>
+
+            </tr>
+
+
+            <tr>
+
+                <td class='label'>
+                    UTR / Transaction ID
+                </td>
+
+                <td class='value'>
+                    {utr}
+                </td>
+
+            </tr>
+
+
+            <tr>
+
+                <td class='label'>
+                    Payment Date
+                </td>
+
+                <td class='value'>
+                    {paymentDate}
+                </td>
+
+            </tr>
+
+
+            <tr>
+
+                <td class='label'>
+                    Amount Paid
+                </td>
+
+                <td class='value'>
+                    ₹{amount}
+                </td>
+
+            </tr>
+
+
+            <tr>
+
+                <td class='label'>
+                    Status
+                </td>
+
+                <td class='value approved'>
+                    Payment Approved
+                </td>
+
+            </tr>
+
+        </table>
 
     </div>
+
+
+    <!-- PAYMENT VERIFIED -->
 
     <div class='notice'>
 
-        <b>✓ Payment Verified</b>
+        <b>
+            ✓ Payment Verified
+        </b>
 
         <p style='margin-bottom:0;'>
 
-            Your payment has been reviewed and verified
-            by the Ecoex Academy team. Your registration
-            is successfully confirmed.
+            Your payment has been reviewed and verified by the
+            Ecoex Academy team.
+            Your registration is successfully confirmed.
 
         </p>
 
     </div>
+
+
+    <!-- NEXT STEPS -->
 
     <div class='next-step'>
 
-        <b>What's next?</b>
+        <b>
+            What's next?
+        </b>
 
         <p>
 
-            You can now access your registered course
-            and continue your learning journey with
-            Ecoex Academy.
+            You can now access your registered course and continue
+            your learning journey with Ecoex Academy.
 
         </p>
 
         <p style='margin-bottom:0;'>
 
-            If your course includes live sessions or
-            additional resources, the relevant details
-            will be shared with you separately.
+            If your course includes live sessions or additional resources,
+            the relevant details will be shared with you separately.
 
         </p>
 
     </div>
+
+
+    <!-- CLOSING -->
 
     <p>
 
         Thank you for choosing <b>Ecoex Academy</b>.
-        We look forward to being part of your learning
-        journey.
+        We look forward to being part of your learning journey.
 
     </p>
+
+
+    <!-- FOOTER -->
 
     <div class='footer'>
 
@@ -1284,44 +1383,183 @@ Empowering professionals with knowledge and skills.
 </div>
 
 </body>
-
 </html>
 ";
 
-
                 // ==========================================
-                // SEND EMAIL
+                // SEND EMAIL WITH ATTACHMENT
                 // ==========================================
 
-                using (var message = new MailMessage(
-                    fromAddress,
-                    toAddress))
+                using (var message = new MailMessage(fromAddress, toAddress))
+                using (var pdfStream = new MemoryStream(receiptPdfBytes))
                 {
-                    message.Subject =
-      $"Payment Approved - Order #{orderId} | Ecoex Academy";
-
+                    message.Subject = $"Payment Approved - Order #{orderId} | Ecoex Academy";
                     message.Body = htmlBody;
-
                     message.IsBodyHtml = true;
+
+                    var attachment = new Attachment(pdfStream, $"Receipt_Payment_{paymentIdStr}.pdf", "application/pdf");
+                    message.Attachments.Add(attachment);
 
                     await smtp.SendMailAsync(message);
                 }
 
-
-                return new Response
-                {
-                    Success = true,
-                    Message = "Payment approval email sent successfully."
-                };
+                return new Response { Success = true, Message = "Payment approval email sent successfully." };
             }
             catch (Exception ex)
             {
-                return new Response
-                {
-                    Success = false,
-                    Message = ex.Message
-                };
+                return new Response { Success = false, Message = ex.Message };
             }
+        }
+
+        // ==========================================
+        // PDF RECEIPT GENERATOR (QuestPDF)
+        // ==========================================
+        private byte[] GenerateReceiptPdf(
+     string payerName,
+     string payerEmail,
+     string orderId,
+     string paymentId,
+     string utr,
+     string submittedOn,
+     string amount,
+     string logoPath)
+        {
+            var document = Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(40);
+
+                    page.DefaultTextStyle(x =>
+                        x.FontSize(11)
+                         .FontColor(Colors.Grey.Darken3));
+
+                    page.Header().Column(col =>
+                    {
+                        col.Item().Row(row =>
+                        {
+                            // ECOEX LOGO
+                            row.RelativeItem()
+                                .Height(45)
+                                .Image(logoPath)
+                                .FitHeight();
+
+                            // PAYMENT RECEIPT
+                            row.RelativeItem()
+                                .AlignRight()
+                                .AlignMiddle()
+                                .Text("PAYMENT RECEIPT")
+                                .FontSize(18)
+                                .Bold();
+                        });
+
+                        col.Item()
+                            .PaddingTop(2)
+                            .Text("EcoEx Academy  |  academy.ecoex.market")
+                            .FontSize(9)
+                            .FontColor(Colors.Grey.Medium);
+
+                        col.Item()
+                            .Text("Karma Ecotech Limited, operating as EcoEx")
+                            .FontSize(9)
+                            .FontColor(Colors.Grey.Medium);
+
+                        col.Item()
+                            .PaddingTop(10)
+                            .LineHorizontal(0.5f)
+                            .LineColor(Colors.Grey.Lighten1);
+                    });
+
+                    page.Content()
+                        .PaddingTop(20)
+                        .Column(col =>
+                        {
+                            col.Item()
+                                .Text($"Receipt for Payment #{paymentId}")
+                                .Bold()
+                                .FontSize(13);
+
+                            col.Item().PaddingTop(10);
+
+                            void Row(string label, string value)
+                            {
+                                col.Item()
+                                    .PaddingVertical(6)
+                                    .Row(row =>
+                                    {
+                                        row.RelativeItem()
+                                            .Text(label)
+                                            .FontColor(Colors.Grey.Medium);
+
+                                        row.RelativeItem()
+                                            .AlignRight()
+                                            .Text(value)
+                                            .Bold();
+                                    });
+
+                                col.Item()
+                                    .LineHorizontal(0.5f)
+                                    .LineColor(Colors.Grey.Lighten2);
+                            }
+
+                            Row("Payer Name", payerName);
+                            Row("Payer Email", payerEmail);
+                            Row("Order ID", $"#{orderId}");
+                            Row("Payment ID", $"#{paymentId}");
+                            Row("UTR / Transaction Reference", utr);
+                            Row("Submitted On", submittedOn);
+
+                            col.Item()
+                                .PaddingTop(20)
+                                .Background(Colors.Green.Lighten4)
+                                .Padding(15)
+                                .Row(row =>
+                                {
+                                    row.RelativeItem()
+                                        .Text("Amount Paid (incl. GST)")
+                                        .FontColor(Colors.Grey.Darken1);
+
+                                    row.RelativeItem()
+                                        .AlignRight()
+                                        .Text($"Rs. {amount}")
+                                        .FontSize(18)
+                                        .Bold()
+                                        .FontColor(Colors.Green.Darken2);
+                                });
+                        });
+
+                    page.Footer()
+                        .PaddingTop(20)
+                        .Column(col =>
+                        {
+                            col.Item()
+                                .LineHorizontal(0.5f)
+                                .LineColor(Colors.Grey.Lighten1);
+
+                            col.Item()
+                                .PaddingTop(8)
+                                .AlignCenter()
+                                .Text("This is a system-generated receipt and does not require a signature.")
+                                .FontSize(8)
+                                .FontColor(Colors.Grey.Medium);
+
+                            col.Item()
+                                .AlignCenter()
+                                .Text("For questions about this payment, contact support@ecoex.market")
+                                .FontSize(8)
+                                .FontColor(Colors.Grey.Medium);
+
+                            col.Item()
+                                .AlignCenter()
+                                .Text("Karma Ecotech Limited (operating as EcoEx) — academy.ecoex.market")
+                                .FontSize(8)
+                                .FontColor(Colors.Grey.Medium);
+                        });
+                });
+            });
+
+            return document.GeneratePdf();
         }
 
         public async Task<Response> SendPaymentRejectEmailAsync(int PaymentId)

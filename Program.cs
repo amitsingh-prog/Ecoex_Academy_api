@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using QuestPDF.Infrastructure;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -126,7 +127,7 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod();
     });
 });
-
+QuestPDF.Settings.License = LicenseType.Community; // add this line
 // ============================================================
 // BUILD APPLICATION
 // ============================================================
