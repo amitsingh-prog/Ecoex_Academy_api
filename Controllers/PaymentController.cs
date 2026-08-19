@@ -1,5 +1,6 @@
 ﻿using Ecoeex_Academy_Api.Data;
 using Ecoeex_Academy_Api.Model;
+using Ecoeex_Academy_Api.Services;
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,10 +12,12 @@ namespace Ecoeex_Academy_Api.Controllers
     public class PaymentController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IEmail_Services _emailService;
 
-        public PaymentController(AppDbContext context)
+        public PaymentController(AppDbContext context , IEmail_Services emailService)
         {
             _context = context;
+            _emailService = emailService;
         }
 
         [HttpGet]
@@ -127,6 +130,21 @@ namespace Ecoeex_Academy_Api.Controllers
 
             await _context.SaveChangesAsync();
 
+
+
+            var emailResponse = await _emailService.SendPaymentApprovedEmailAsync(paymentId);
+
+
+            if (!emailResponse.Success)
+            {
+                return Ok(new
+                {
+                    message = "Payment approved, but approval email could not be sent.",
+                    emailMessage = emailResponse.Message
+                });
+
+
+            }
             return Ok(new { message = "Payment approved." });
         }
 
@@ -162,6 +180,24 @@ namespace Ecoeex_Academy_Api.Controllers
             }
 
             await _context.SaveChangesAsync();
+
+
+
+            var emailResponse = await _emailService.SendPaymentRejectEmailAsync(paymentId);
+
+
+            if (!emailResponse.Success)
+            {
+                return Ok(new
+                {
+                    message = "Payment approved, but approval email could not be sent.",
+                    emailMessage = emailResponse.Message
+                });
+
+
+            }
+
+
 
             return Ok(new { message = "Payment rejected." });
         }

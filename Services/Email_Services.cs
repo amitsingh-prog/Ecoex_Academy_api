@@ -903,8 +903,815 @@ Empowering professionals with knowledge and skills.
 
 
 
+        public async Task<Response> SendPaymentApprovedEmailAsync(int PaymentId)
+        {
+            try
+            {
+                // ==========================================
+                // GET PAYMENT DETAILS
+                // ==========================================
+
+                var payment = await _context.tb_Payments
+                    .Include(x => x.Order)
+                        .ThenInclude(x => x.PayerUser)
+                    .FirstOrDefaultAsync(x => x.PaymentId == PaymentId);
 
 
+                if (payment == null)
+                {
+                    return new Response
+                    {
+                        Success = false,
+                        Message = "Payment not found."
+                    };
+                }
+
+
+                // ==========================================
+                // GET USER
+                // ==========================================
+
+                var user = payment.Order.PayerUser;
+
+
+                if (user == null)
+                {
+                    return new Response
+                    {
+                        Success = false,
+                        Message = "User not found."
+                    };
+                }
+
+
+                // ==========================================
+                // SMTP CONFIGURATION
+                // ==========================================
+
+                var smtp = new SmtpClient
+                {
+                    Host = "smtp-relay.brevo.com",
+                    Port = 587,
+                    EnableSsl = true,
+                    DeliveryMethod = SmtpDeliveryMethod.Network,
+                    UseDefaultCredentials = false,
+                    Credentials = new NetworkCredential(
+                        "info@ecoex.market",
+                        brevokey
+                    )
+                };
+
+
+                var fromAddress = new MailAddress(
+                    "info@ecoex.market",
+                    "Ecoex Academy"
+                );
+
+
+                var toAddress = new MailAddress(
+                    user.Email,
+                    user.Name
+                );
+
+
+                // ==========================================
+                // PAYMENT DETAILS
+                // ==========================================
+
+                string paymentDate =
+                    payment.SubmittedAt.ToLocalTime()
+                        .ToString("dd MMM yyyy, hh:mm tt");
+
+
+                string amount =
+                    payment.Order.TotalAmount
+                        .ToString("N2");
+
+
+                string orderId =
+                    payment.Order.OrderId.ToString();
+
+
+                // ==========================================
+                // EMAIL HTML
+                // ==========================================
+                string htmlBody = $@"
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+    <meta charset='UTF-8'>
+
+    <style>
+
+        body {{
+            font-family: Arial, sans-serif;
+            background: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+        }}
+
+        .container {{
+            max-width: 600px;
+            margin: auto;
+            background: #ffffff;
+            padding: 35px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        }}
+
+        .header {{
+            text-align: center;
+            color: #198754;
+        }}
+
+        .logo {{
+            font-size: 30px;
+            font-weight: bold;
+        }}
+
+        .success-box {{
+            background: #f0fff4;
+            border: 2px solid #198754;
+            padding: 25px;
+            text-align: center;
+            border-radius: 12px;
+            margin: 25px 0;
+        }}
+
+        .title {{
+            color: #198754;
+            font-size: 24px;
+            font-weight: bold;
+        }}
+
+        .icon {{
+            font-size: 45px;
+            margin-bottom: 10px;
+        }}
+
+        .details {{
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }}
+
+        .row {{
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eeeeee;
+        }}
+
+        .row:last-child {{
+            border-bottom: none;
+        }}
+
+        .label {{
+            color: #777777;
+        }}
+
+        .value {{
+            font-weight: bold;
+            color: #333333;
+        }}
+
+        .approved {{
+            color: #198754;
+        }}
+
+        .notice {{
+            background: #e8f5e9;
+            border-left: 4px solid #198754;
+            padding: 15px;
+            margin-top: 25px;
+            color: #444444;
+        }}
+
+        .next-step {{
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }}
+
+        .footer {{
+            margin-top: 30px;
+            text-align: center;
+            color: #777777;
+            font-size: 13px;
+        }}
+
+        p {{
+            color: #444444;
+            font-size: 15px;
+            line-height: 1.6;
+        }}
+
+    </style>
+
+</head>
+
+<body>
+
+<div class='container'>
+
+    <div class='header'>
+
+        <div class='logo'>
+            Ecoex Academy
+        </div>
+
+        <p>
+            Learning | Sustainability | Future Skills
+        </p>
+
+    </div>
+
+    <hr>
+
+    <h3>
+        Hello {user.Name},
+    </h3>
+
+    <div class='success-box'>
+
+        <div class='icon'>
+            ✓
+        </div>
+
+        <div class='title'>
+            Payment Approved Successfully
+        </div>
+
+        <p>
+            Your payment has been successfully verified
+            and approved by our team.
+        </p>
+
+    </div>
+
+    <p>
+        Congratulations! 🎉
+    </p>
+
+    <p>
+        Your payment for <b>Ecoex Academy</b> has been
+        verified successfully. Your registration is now
+        confirmed.
+    </p>
+
+    <div class='details'>
+
+        <div class='row'>
+
+            <span class='label'>
+                Order ID
+            </span>
+
+            <span class='value'>
+                #{orderId}
+            </span>
+
+        </div>
+
+        <div class='row'>
+
+            <span class='label'>
+                Amount Paid
+            </span>
+
+            <span class='value'>
+                ₹{amount}
+            </span>
+
+        </div>
+
+        <div class='row'>
+
+            <span class='label'>
+                UTR / Transaction ID
+            </span>
+
+            <span class='value'>
+                {payment.Utr}
+            </span>
+
+        </div>
+
+        <div class='row'>
+
+            <span class='label'>
+                Payment Date
+            </span>
+
+            <span class='value'>
+                {paymentDate}
+            </span>
+
+        </div>
+
+        <div class='row'>
+
+            <span class='label'>
+                Status
+            </span>
+
+            <span class='value approved'>
+                Payment Approved
+            </span>
+
+        </div>
+
+    </div>
+
+    <div class='notice'>
+
+        <b>✓ Payment Verified</b>
+
+        <p style='margin-bottom:0;'>
+
+            Your payment has been reviewed and verified
+            by the Ecoex Academy team. Your registration
+            is successfully confirmed.
+
+        </p>
+
+    </div>
+
+    <div class='next-step'>
+
+        <b>What's next?</b>
+
+        <p>
+
+            You can now access your registered course
+            and continue your learning journey with
+            Ecoex Academy.
+
+        </p>
+
+        <p style='margin-bottom:0;'>
+
+            If your course includes live sessions or
+            additional resources, the relevant details
+            will be shared with you separately.
+
+        </p>
+
+    </div>
+
+    <p>
+
+        Thank you for choosing <b>Ecoex Academy</b>.
+        We look forward to being part of your learning
+        journey.
+
+    </p>
+
+    <div class='footer'>
+
+        © {DateTime.Now.Year} Ecoex Academy
+        <br>
+
+        Empowering professionals with knowledge and skills.
+
+    </div>
+
+</div>
+
+</body>
+
+</html>
+";
+
+
+                // ==========================================
+                // SEND EMAIL
+                // ==========================================
+
+                using (var message = new MailMessage(
+                    fromAddress,
+                    toAddress))
+                {
+                    message.Subject =
+      $"Payment Approved - Order #{orderId} | Ecoex Academy";
+
+                    message.Body = htmlBody;
+
+                    message.IsBodyHtml = true;
+
+                    await smtp.SendMailAsync(message);
+                }
+
+
+                return new Response
+                {
+                    Success = true,
+                    Message = "Payment approval email sent successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                return new Response
+                {
+                    Success = false,
+                    Message = ex.Message
+                };
+            }
+        }
+
+        public async Task<Response> SendPaymentRejectEmailAsync(int PaymentId)
+        {
+            try
+            {
+                // ==========================================
+                // GET PAYMENT DETAILS
+                // ==========================================
+
+                var payment = await _context.tb_Payments
+                    .Include(x => x.Order)
+                        .ThenInclude(x => x.PayerUser)
+                    .FirstOrDefaultAsync(x => x.PaymentId == PaymentId);
+
+
+                if (payment == null)
+                {
+                    return new Response
+                    {
+                        Success = false,
+                        Message = "Payment not found."
+                    };
+                }
+
+
+                // ==========================================
+                // GET USER
+                // ==========================================
+
+                var user = payment.Order.PayerUser;
+
+
+                if (user == null)
+                {
+                    return new Response
+                    {
+                        Success = false,
+                        Message = "User not found."
+                    };
+                }
+
+
+                // ==========================================
+                // SMTP CONFIGURATION
+                // ==========================================
+
+                var smtp = new SmtpClient
+                {
+                    Host = "smtp-relay.brevo.com",
+                    Port = 587,
+                    EnableSsl = true,
+                    DeliveryMethod = SmtpDeliveryMethod.Network,
+                    UseDefaultCredentials = false,
+                    Credentials = new NetworkCredential(
+                        "info@ecoex.market",
+                        brevokey
+                    )
+                };
+
+
+                var fromAddress = new MailAddress(
+                    "info@ecoex.market",
+                    "Ecoex Academy"
+                );
+
+
+                var toAddress = new MailAddress(
+                    user.Email,
+                    user.Name
+                );
+
+
+                // ==========================================
+                // PAYMENT DETAILS
+                // ==========================================
+
+                string paymentDate =
+                    payment.SubmittedAt.ToLocalTime()
+                        .ToString("dd MMM yyyy, hh:mm tt");
+
+
+                string amount =
+                    payment.Order.TotalAmount
+                        .ToString("N2");
+
+
+                string orderId =
+                    payment.Order.OrderId.ToString();
+
+
+                // ==========================================
+                // EMAIL HTML
+                // ==========================================
+
+                string htmlBody = $@"
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+    <meta charset='UTF-8'>
+
+    <style>
+
+        body {{
+            font-family: Arial, sans-serif;
+            background: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+        }}
+
+        .container {{
+            max-width: 600px;
+            margin: auto;
+            background: #ffffff;
+            padding: 35px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        }}
+
+        .header {{
+            text-align: center;
+            color: #dc3545;
+        }}
+
+        .logo {{
+            font-size: 30px;
+            font-weight: bold;
+        }}
+
+        .reject-box {{
+            background: #fff5f5;
+            border: 2px solid #dc3545;
+            padding: 25px;
+            text-align: center;
+            border-radius: 12px;
+            margin: 25px 0;
+        }}
+
+        .title {{
+            color: #dc3545;
+            font-size: 24px;
+            font-weight: bold;
+        }}
+
+        .details {{
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }}
+
+        .row {{
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eeeeee;
+        }}
+
+        .row:last-child {{
+            border-bottom: none;
+        }}
+
+        .label {{
+            color: #777777;
+        }}
+
+        .value {{
+            font-weight: bold;
+            color: #333333;
+        }}
+
+        .notice {{
+            background: #fff8e1;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin-top: 25px;
+            color: #555555;
+        }}
+
+        .footer {{
+            margin-top: 30px;
+            text-align: center;
+            color: #777777;
+            font-size: 13px;
+        }}
+
+        p {{
+            color: #444444;
+            font-size: 15px;
+            line-height: 1.6;
+        }}
+
+    </style>
+
+</head>
+
+<body>
+
+<div class='container'>
+
+    <div class='header'>
+
+        <div class='logo'>
+            Ecoex Academy
+        </div>
+
+        <p>
+            Learning | Sustainability | Future Skills
+        </p>
+
+    </div>
+
+    <hr>
+
+    <h3>
+        Hello {user.Name},
+    </h3>
+
+    <div class='reject-box'>
+
+        <div class='title'>
+            Payment Verification Unsuccessful
+        </div>
+
+        <p>
+            Unfortunately, we were unable to verify your
+            payment with the transaction details submitted.
+        </p>
+
+    </div>
+
+    <p>
+        Thank you for registering with
+        <b>Ecoex Academy</b>.
+    </p>
+
+    <p>
+        We have reviewed the payment details submitted
+        for your registration. Unfortunately, the payment
+        could not be approved at this time.
+    </p>
+
+    <div class='details'>
+
+        <div class='row'>
+
+            <span class='label'>
+                Order ID
+            </span>
+
+            <span class='value'>
+                #{orderId}
+            </span>
+
+        </div>
+
+        <div class='row'>
+
+            <span class='label'>
+                Amount
+            </span>
+
+            <span class='value'>
+                ₹{amount}
+            </span>
+
+        </div>
+
+        <div class='row'>
+
+            <span class='label'>
+                UTR / Transaction ID
+            </span>
+
+            <span class='value'>
+                {payment.Utr}
+            </span>
+
+        </div>
+
+        <div class='row'>
+
+            <span class='label'>
+                Submitted On
+            </span>
+
+            <span class='value'>
+                {paymentDate}
+            </span>
+
+        </div>
+
+        <div class='row'>
+
+            <span class='label'>
+                Status
+            </span>
+
+            <span class='value' style='color:#dc3545;'>
+                Payment Rejected
+            </span>
+
+        </div>
+
+    </div>
+
+    <div class='notice'>
+
+        <b>What should you do next?</b>
+
+        <p style='margin-bottom:0;'>
+
+            Please check your transaction details and make sure
+            that the payment was successfully completed.
+            If you believe this rejection was made in error,
+            please contact the Ecoex Academy support team
+            with your Order ID and transaction details.
+
+        </p>
+
+    </div>
+
+    <p>
+
+        If you have not completed the payment successfully,
+        please make the payment again and submit the correct
+        transaction details.
+
+    </p>
+
+    <p>
+
+        We are happy to help if you have any questions
+        regarding your payment or registration.
+
+    </p>
+
+    <div class='footer'>
+
+        © {DateTime.Now.Year} Ecoex Academy
+        <br>
+
+        Empowering professionals with knowledge and skills.
+
+    </div>
+
+</div>
+
+</body>
+
+</html>
+";
+
+
+                // ==========================================
+                // SEND EMAIL
+                // ==========================================
+
+                using (var message = new MailMessage(
+                    fromAddress,
+                    toAddress))
+                {
+                    message.Subject =
+             $"Payment Verification Failed - Order #{orderId} | Ecoex Academy";
+
+                    message.Body = htmlBody;
+
+                    message.IsBodyHtml = true;
+
+                    await smtp.SendMailAsync(message);
+                }
+
+                return new Response
+                {
+                    Success = true,
+                    Message = "Payment rejection email sent successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                return new Response
+                {
+                    Success = false,
+                    Message = ex.Message
+                };
+            }
+        }
 
 
 
