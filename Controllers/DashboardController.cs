@@ -28,10 +28,7 @@ namespace Ecoex_Academy_Api.Controllers
         private const string PaymentApproved = "approved";
         private const string PaymentPendingVerification = "pending verification";
 
-        /// <summary>
-        /// Card values for dashboard (top-level small cards).
-        /// Returns concise numeric summaries without item lists.
-        /// </summary>
+
         [HttpGet("cards")]
         public async Task<ActionResult<CardValuesResponse>> GetCardValues(CancellationToken cancellationToken)
         {
@@ -243,11 +240,7 @@ namespace Ecoex_Academy_Api.Controllers
             };
         }
 
-        /// <summary>
-        /// Returns a paged list of dashboard orders filtered by type.
-        /// Query param `type` is required and must be one of: revenue, claimed, abandoned, average.
-        /// Optional pagination: page (>=1), pageSize (1..200).
-        /// </summary>
+
 
 
         [HttpGet("list")]
@@ -274,9 +267,6 @@ namespace Ecoex_Academy_Api.Controllers
 
             var orders = _context.tb_Orders.AsNoTracking();
 
-            // ============================================================
-            // AVERAGE ORDER VALUE
-            // ============================================================
 
             if (type == "aov")
             {
@@ -309,10 +299,6 @@ namespace Ecoex_Academy_Api.Controllers
                     items
                 });
             }
-
-            // ============================================================
-            // OTHER DASHBOARD REPORTS
-            // ============================================================
 
             IQueryable<Order> query = type switch
             {
@@ -376,6 +362,819 @@ namespace Ecoex_Academy_Api.Controllers
             });
         }
 
+
+        [HttpGet("registration/cards")]
+        public async Task<ActionResult<RegistrationCardsResponse>> GetRegistrationCards(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var accounts = await _context.tb_Users
+                    .AsNoTracking()
+                    .CountAsync(cancellationToken);
+
+
+                var verified = await _context.tb_Users
+                    .AsNoTracking()
+                    .CountAsync(u => u.EmailVerified || u.MobileVerified, cancellationToken);
+
+
+                var orderedUsers = await _context.tb_Orders
+                    .AsNoTracking()
+                    .Select(o => o.PayerUserId)
+                    .Distinct()
+                    .CountAsync(cancellationToken);
+
+                var paidUsers = await _context.tb_Orders
+                    .AsNoTracking()
+                    .Where(o =>
+                        o.Status != null &&
+                        o.Status.ToLower() == OrderPaid &&
+                        o.Payment != null &&
+                        o.Payment.Status != null &&
+                        o.Payment.Status.ToLower() == PaymentApproved)
+                    .Select(o => o.PayerUserId)
+                    .Distinct()
+                    .CountAsync(cancellationToken);
+
+                var funnelPercent = accounts == 0
+                    ? 0
+                    : Math.Round(verified * 100m / accounts, 1);
+
+
+                var signupToPurchasePercent = accounts == 0
+                    ? 0
+                    : Math.Round(paidUsers * 100m / accounts, 1);
+
+
+                var providerGroups = await _context.tb_Users
+                    .AsNoTracking()
+                    .GroupBy(u => u.AuthProvider ?? "unknown")
+                    .Select(g => new ProviderBreakdownItem
+                    {
+                        Provider = g.Key,
+                        Count = g.Count()
+                    })
+                    .ToListAsync(cancellationToken);
+
+                foreach (var p in providerGroups)
+                {
+                    p.Percent = accounts == 0 ? 0 : Math.Round(p.Count * 100m / accounts, 1);
+                }
+
+                var response = new RegistrationCardsResponse
+                {
+                    RegistrationFunnelPercent = funnelPercent,
+                    Started = accounts - verified,
+                    Verified = verified,
+                    Accounts = accounts,
+
+                    SignupToPurchasePercent = signupToPurchasePercent,
+                    AccountsWithOrders = orderedUsers,
+                    AccountsPaid = paidUsers,
+
+                    ProviderBreakdown = providerGroups
+                        .OrderByDescending(x => x.Count)
+                        .ToList()
+                };
+
+                return Ok(response);
+            }
+            catch (OperationCanceledException)
+            {
+                return BadRequest(new { message = "Request was cancelled." });
+            }
+            catch (Exception)
+            {
+                return Problem(detail: "An unexpected error occurred while computing registration cards.", statusCode: 500);
+            }
+        }
+
+
+
+
+
+        [HttpGet("registration/list")]
+        public async Task<ActionResult> GetRegistrationList([FromQuery] string? type, [FromQuery] int page = 1,
+          [FromQuery] int pageSize = 50,
+          [FromQuery] int samplePerProvider = 5,
+          CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(type))
+            {
+                return BadRequest(new { message = "Query parameter 'type' is required. Allowed: started, verified, accounts, ordered, paid, providers." });
+            }
+
+            type = type.Trim().ToLowerInvariant();
+
+            if (page < 1) page = 1;
+            pageSize = Math.Clamp(pageSize, 1, 200);
+
+            try
+            {
+                switch (type)
+                {
+                    case "funnel":
+                        {
+                            var query = _context.tb_Users
+                                .AsNoTracking()
+                                .OrderByDescending(x => x.CreatedAt);
+
+                            var total = await query.CountAsync(cancellationToken);
+
+                            var items = await query
+                                .Skip((page - 1) * pageSize)
+                                .Take(pageSize)
+                                .Select(u => new
+                                {
+                                    u.UserId,
+                                    u.Name,
+                                    u.Email,
+                                    u.Mobile,
+                                    u.AuthProvider,
+                                    u.RegistrationType,
+                                    u.UserType,
+                                    u.EmailVerified,
+                                    u.MobileVerified,
+                                    u.CreatedAt,
+                                    FunnelStatus = u.EmailVerified || u.MobileVerified ? "verified" : "started"
+                                })
+                                .ToListAsync(cancellationToken);
+
+                            return Ok(new PagedListResponse<object>
+                            {
+                                Total = total,
+                                Page = page,
+                                PageSize = pageSize,
+                                Items = items
+                            });
+                        }
+
+                    case "signup-to-purchase conversion":
+                        {
+                            var grouped = _context.tb_Orders
+                                .AsNoTracking()
+                                .Where(o =>
+                                    o.Status != null &&
+                                    o.Status.ToLower() == OrderPaid &&
+                                    o.Payment != null &&
+                                    o.Payment.Status != null &&
+                                    o.Payment.Status.ToLower() == PaymentApproved)
+                                .GroupBy(o => o.PayerUserId)
+                                .Select(g => new
+                                {
+                                    UserId = g.Key,
+                                    Orders = g.Count(),
+                                    LatestOrder = g.Max(o => o.CreatedAt)
+                                });
+
+                            var joined = grouped
+                                .Join(
+                                    _context.tb_Users.AsNoTracking(),
+                                    g => g.UserId,
+                                    u => u.UserId,
+                                    (g, u) => new
+                                    {
+                                        u.UserId,
+                                        u.Name,
+                                        u.Email,
+                                        u.Mobile,
+                                        Orders = g.Orders,
+                                        LatestOrder = g.LatestOrder,
+                                        u.AuthProvider,
+                                        u.CreatedAt,
+                                        OrderStatus = "Paid"
+                                    })
+                                .OrderByDescending(x => x.LatestOrder);
+
+                            var total = await joined.CountAsync(cancellationToken);
+
+                            var items = await joined
+                                .Skip((page - 1) * pageSize)
+                                .Take(pageSize)
+                                .ToListAsync(cancellationToken);
+
+                            return Ok(new PagedListResponse<object>
+                            {
+                                Total = total,
+                                Page = page,
+                                PageSize = pageSize,
+                                Items = items
+                            });
+                        }
+
+
+                    case "providers":
+                        {
+                            var accounts = await _context.tb_Users.AsNoTracking().CountAsync(cancellationToken);
+
+                            var groups = await _context.tb_Users
+                                .AsNoTracking()
+                                .GroupBy(u => u.AuthProvider ?? "unknown")
+                                .Select(g => new
+                                {
+                                    Provider = g.Key,
+                                    Count = g.Count()
+                                })
+                                .OrderByDescending(x => x.Count)
+                                .ToListAsync(cancellationToken);
+
+                            var result = groups
+                                .Select(g => new ProviderWithSamples
+                                {
+                                    Provider = g.Provider,
+                                    Count = g.Count,
+                                    Percent = accounts == 0 ? 0 : Math.Round(g.Count * 100m / accounts, 1),
+                                    Samples = _context.tb_Users
+                                        .AsNoTracking()
+                                        .Where(u => (u.AuthProvider ?? "unknown") == g.Provider)
+                                        .OrderByDescending(u => u.CreatedAt)
+                                        .Take(samplePerProvider)
+                                        .Select(u => new { u.UserId, u.Name, u.Email, u.CreatedAt })
+                                        .ToList()
+                                })
+                                .ToList();
+
+                            return Ok(new { total = groups.Count, page = 1, pageSize = groups.Count, items = result });
+                        }
+
+                    default:
+                        return BadRequest(new { message = "Invalid type. Allowed: started, verified, accounts, ordered, paid, providers." });
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return BadRequest(new { message = "Request was cancelled." });
+            }
+            catch (Exception)
+            {
+                return Problem(detail: "An unexpected error occurred while fetching registration list.", statusCode: 500);
+            }
+        }
+
+
+
+
+
+        [HttpGet("course/cards")]
+        public async Task<ActionResult<CourseCardsResponse>> GetCourseCards(
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+
+                var courseDemand = await _context.tb_OrderCourses
+                    .AsNoTracking()
+                    .GroupBy(oc => new
+                    {
+                        oc.CourseID,
+                        oc.Course.Name
+                    })
+                    .Select(g => new CourseDemandItem
+                    {
+                        CourseId = g.Key.CourseID,
+                        Course = g.Key.Name ?? "Unknown",
+
+                        Paid = g.Count(oc =>
+                            oc.Order.Status != null &&
+                            oc.Order.Status.ToLower() == OrderPaid &&
+                            oc.Order.Payment != null &&
+                            oc.Order.Payment.Status != null &&
+                            oc.Order.Payment.Status.ToLower() == PaymentApproved),
+
+                        Pending = g.Count(oc =>
+                            oc.Order.Status != null &&
+                            oc.Order.Status.ToLower() == OrderPending)
+                    })
+                    .OrderByDescending(x => x.Paid)
+                    .ToListAsync(cancellationToken);
+
+
+                var spaUserIds = await _context.tb_Users
+                    .AsNoTracking()
+                    .Where(u =>
+                        u.Email != null &&
+                        u.Email.ToLower().EndsWith("@spa.ac.in"))
+                    .Select(u => u.UserId)
+                    .ToListAsync(cancellationToken);
+
+
+                var spaPaidOrders = await _context.tb_Orders
+                    .AsNoTracking()
+                    .Where(o =>
+                        spaUserIds.Contains(o.PayerUserId) &&
+                        o.Status != null &&
+                        o.Status.ToLower() == OrderPaid &&
+                        o.Payment != null &&
+                        o.Payment.Status != null &&
+                        o.Payment.Status.ToLower() == PaymentApproved)
+                    .ToListAsync(cancellationToken);
+
+
+                var spaTotal = spaUserIds.Count;
+
+                var spaPaid = spaPaidOrders
+                    .Select(o => o.PayerUserId)
+                    .Distinct()
+                    .Count();
+
+                var revenueByCourse = await _context.tb_OrderCourses
+                    .AsNoTracking()
+                    .Where(oc =>
+                        oc.Order.Status != null &&
+                        oc.Order.Status.ToLower() == OrderPaid &&
+                        oc.Order.Payment != null &&
+                        oc.Order.Payment.Status != null &&
+                        oc.Order.Payment.Status.ToLower() == PaymentApproved)
+                    .GroupBy(oc => new
+                    {
+                        oc.CourseID,
+                        oc.Course.Name
+                    })
+                    .Select(g => new CourseRevenueItem
+                    {
+                        CourseId = g.Key.CourseID,
+                        Course = g.Key.Name ?? "Unknown",
+
+                        Revenue = Math.Round(
+                            g.Sum(oc => oc.Order.TotalAmount),
+                            2)
+                    })
+                    .OrderByDescending(x => x.Revenue)
+                    .ToListAsync(cancellationToken);
+
+
+                var leadingCourse = courseDemand
+                    .OrderByDescending(x => x.Paid)
+                    .FirstOrDefault();
+
+
+                var response = new CourseCardsResponse
+                {
+                    LeadingCourse = leadingCourse?.Course ?? "N/A",
+
+                    DemandByCourse = courseDemand,
+
+                    SpaStudentSegment = new SpaStudentSegment
+                    {
+                        Total = spaTotal,
+                        Paid = spaPaid,
+                        DiscountGiven = 0
+                    },
+
+                    RevenueByCourse = revenueByCourse
+                };
+
+                return Ok(response);
+            }
+            catch (OperationCanceledException)
+            {
+                return BadRequest(new
+                {
+                    message = "Request was cancelled."
+                });
+            }
+            catch (Exception)
+            {
+                return Problem(detail: "An unexpected error occurred while computing course cards.",
+                    statusCode: 500);
+            }
+        }
+
+        [HttpGet("course/list")]
+        public async Task<ActionResult> GetCourseList(
+        [FromQuery] string? type,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(type))
+            {
+                return BadRequest(new
+                {
+                    message = "Query parameter 'type' is required. Allowed: demand, spa, revenue."
+                });
+            }
+
+            type = type.Trim().ToLowerInvariant();
+
+            if (page < 1)
+                page = 1;
+
+            pageSize = Math.Clamp(pageSize, 1, 200);
+
+            try
+            {
+
+
+                if (type == "demand")
+                {
+                    var query = _context.tb_OrderCourses
+                        .AsNoTracking()
+                        .GroupBy(oc => new
+                        {
+                            oc.CourseID,
+                            oc.Course.Name
+                        })
+                        .Select(g => new
+                        {
+                            courseId = g.Key.CourseID,
+
+                            course = g.Key.Name ?? "Unknown",
+
+                            paid = g.Count(oc =>
+                                oc.Order.Status != null &&
+                                oc.Order.Status.ToLower() == OrderPaid &&
+                                oc.Order.Payment != null &&
+                                oc.Order.Payment.Status != null &&
+                                oc.Order.Payment.Status.ToLower() == PaymentApproved),
+
+                            pending = g.Count(oc =>
+                                oc.Order.Status != null &&
+                                oc.Order.Status.ToLower() == OrderPending),
+
+                            total = g.Count()
+                        })
+                        .OrderByDescending(x => x.paid);
+
+                    var total = await query.CountAsync(cancellationToken);
+
+                    var items = await query
+                        .Skip((page - 1) * pageSize)
+                        .Take(pageSize)
+                        .ToListAsync(cancellationToken);
+
+                    return Ok(new
+                    {
+                        total,
+                        page,
+                        pageSize,
+                        items
+                    });
+                }
+
+
+
+                if (type == "spa")
+                {
+                    var query = _context.tb_Users
+                        .AsNoTracking()
+                        .Where(u =>
+                            u.Email != null &&
+                            u.Email.ToLower().EndsWith("@spa.ac.in"))
+                        .Select(u => new
+                        {
+                            u.UserId,
+                            u.Name,
+                            u.Email,
+                            u.Mobile,
+                            u.CreatedAt,
+
+                            Paid = _context.tb_Orders.Any(o =>
+                                o.PayerUserId == u.UserId &&
+                                o.Status != null &&
+                                o.Status.ToLower() == OrderPaid &&
+                                o.Payment != null &&
+                                o.Payment.Status != null &&
+                                o.Payment.Status.ToLower() == PaymentApproved)
+                        })
+                        .OrderByDescending(x => x.CreatedAt);
+
+                    var total = await query.CountAsync(cancellationToken);
+
+                    var items = await query
+                        .Skip((page - 1) * pageSize)
+                        .Take(pageSize)
+                        .ToListAsync(cancellationToken);
+
+                    return Ok(new
+                    {
+                        total,
+                        page,
+                        pageSize,
+                        items
+                    });
+                }
+
+
+
+                if (type == "revenue")
+                {
+                    var query = _context.tb_OrderCourses
+                        .AsNoTracking()
+                        .Where(oc =>
+                            oc.Order.Status != null &&
+                            oc.Order.Status.ToLower() == OrderPaid &&
+                            oc.Order.Payment != null &&
+                            oc.Order.Payment.Status != null &&
+                            oc.Order.Payment.Status.ToLower() == PaymentApproved)
+                        .GroupBy(oc => new
+                        {
+                            oc.CourseID,
+                            oc.Course.Name
+                        })
+                        .Select(g => new
+                        {
+                            courseId = g.Key.CourseID,
+
+                            course = g.Key.Name ?? "Unknown",
+
+                            orders = g.Select(x => x.OrderId)
+                                .Distinct()
+                                .Count(),
+
+                            revenue = Math.Round(
+                                g.Sum(x => x.Order.TotalAmount),
+                                2)
+                        })
+                        .OrderByDescending(x => x.revenue);
+
+                    var total = await query.CountAsync(cancellationToken);
+
+                    var items = await query
+                        .Skip((page - 1) * pageSize)
+                        .Take(pageSize)
+                        .ToListAsync(cancellationToken);
+
+                    return Ok(new
+                    {
+                        total,
+                        page,
+                        pageSize,
+                        items
+                    });
+                }
+
+
+                return BadRequest(new
+                {
+                    message =
+                        "Invalid type. Allowed: demand, spa, revenue."
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                return BadRequest(new
+                {
+                    message = "Request was cancelled."
+                });
+            }
+            catch (Exception)
+            {
+                return Problem(detail: "An unexpected error occurred while fetching course list.",
+                    statusCode: 500);
+            }
+        }
+
+
+
+
+
+
+        [HttpGet("group/cards")]
+        public async Task<ActionResult<GroupSalesCardsResponse>> GetGroupCards(
+       CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var paidGroupIds = await _context.tb_Orders
+                    .AsNoTracking()
+                    .Where(o =>
+                        o.GroupId != null &&
+                        o.Status != null &&
+                        o.Status.ToLower() == OrderPaid &&
+                        o.Payment != null &&
+                        o.Payment.Status != null &&
+                        o.Payment.Status.ToLower() == PaymentApproved)
+                    .Select(o => o.GroupId!.Value)
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+
+
+                var unpaidGroups = _context.tb_RegistrationGroups
+                    .AsNoTracking()
+                    .Where(g =>
+                        !paidGroupIds.Contains(g.GroupId));
+
+                var groupsCreatedNeverPaid =
+                    await unpaidGroups.CountAsync(cancellationToken);
+
+                var unpaidGroupMemberCount =
+                    await _context.tb_RegistrationGroupMembers
+                        .AsNoTracking()
+                        .Where(m =>
+                            !paidGroupIds.Contains(m.GroupId))
+                        .CountAsync(cancellationToken);
+
+                var oldestGroup = await unpaidGroups
+                    .OrderBy(g => g.CreatedAt)
+                    .Select(g => (DateTime?)g.CreatedAt)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                var oldestDays = 0;
+
+                if (oldestGroup.HasValue)
+                {
+                    oldestDays = Math.Max(
+                        0,
+                        (int)(DateTime.UtcNow - oldestGroup.Value).TotalDays);
+                }
+
+
+                return Ok(new GroupSalesCardsResponse
+                {
+                    GroupsCreatedNeverPaid = groupsCreatedNeverPaid,
+                    Members = unpaidGroupMemberCount,
+                    OldestDays = oldestDays
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                return BadRequest(new
+                {
+                    message = "Request was cancelled."
+                });
+            }
+            catch (Exception)
+            {
+                return Problem(
+                    detail: "An unexpected error occurred while computing group sales cards.",
+                    statusCode: 500);
+            }
+        }
+
+        [HttpGet("group/list")]
+        public async Task<ActionResult> GetGroupList(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 50,
+            CancellationToken cancellationToken = default)
+        {
+            if (page < 1)
+                page = 1;
+
+            pageSize = Math.Clamp(pageSize, 1, 200);
+
+            try
+            {
+
+                var paidGroupIds = _context.tb_Orders
+                    .AsNoTracking()
+                    .Where(o =>
+                        o.GroupId != null &&
+                        o.Status != null &&
+                        o.Status.ToLower() == OrderPaid &&
+                        o.Payment != null &&
+                        o.Payment.Status != null &&
+                        o.Payment.Status.ToLower() == PaymentApproved)
+                    .Select(o => o.GroupId!.Value);
+
+                var query = _context.tb_RegistrationGroups
+                    .AsNoTracking()
+                    .Where(g =>
+                        !paidGroupIds.Contains(g.GroupId))
+                    .Select(g => new
+                    {
+                        groupId = g.GroupId,
+
+                        groupCode = g.GroupCode,
+
+                        status = g.Status,
+
+                        createdAt = g.CreatedAt,
+
+                        members = _context.tb_RegistrationGroupMembers
+                            .Count(m => m.GroupId == g.GroupId),
+
+                        ageDays =
+                            (int)(DateTime.UtcNow - g.CreatedAt).TotalDays
+                    })
+                    .OrderByDescending(x => x.createdAt);
+
+
+                var total = await query.CountAsync(cancellationToken);
+
+
+                var items = await query
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync(cancellationToken);
+
+
+                return Ok(new
+                {
+                    total,
+                    page,
+                    pageSize,
+                    items
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                return BadRequest(new
+                {
+                    message = "Request was cancelled."
+                });
+            }
+            catch (Exception)
+            {
+                return Problem(
+                    detail: "An unexpected error occurred while fetching group list.",
+                    statusCode: 500);
+            }
+        }
+
+
+        public class CourseCardsResponse
+        {
+            public string LeadingCourse { get; set; } = string.Empty;
+
+            public List<CourseDemandItem> DemandByCourse { get; set; } = new();
+
+            public SpaStudentSegment SpaStudentSegment { get; set; } = new();
+
+            public List<CourseRevenueItem> RevenueByCourse { get; set; } = new();
+        }
+
+
+        public class CourseDemandItem
+        {
+            public int? CourseId { get; set; }
+
+            public string Course { get; set; } = string.Empty;
+
+            public int Paid { get; set; }
+
+            public int Pending { get; set; }
+        }
+
+
+        public class SpaStudentSegment
+        {
+            public int Total { get; set; }
+
+            public int Paid { get; set; }
+
+            public decimal DiscountGiven { get; set; }
+        }
+
+
+        public class CourseRevenueItem
+        {
+            public int? CourseId { get; set; }
+
+            public string Course { get; set; } = string.Empty;
+
+            public decimal Revenue { get; set; }
+        }
+
+
+        public class GroupSalesCardsResponse
+        {
+            public int GroupsCreatedNeverPaid { get; set; }
+
+            public int Members { get; set; }
+
+            public int OldestDays { get; set; }
+        }
+
+
+        public class RegistrationCardsResponse
+        {
+
+            public decimal RegistrationFunnelPercent { get; set; }
+            public int Started { get; set; }
+            public int Verified { get; set; }
+            public int Accounts { get; set; }
+
+            // Signup-to-purchase
+            public decimal SignupToPurchasePercent { get; set; }
+            public int AccountsWithOrders { get; set; }
+            public int AccountsPaid { get; set; }
+
+            // Provider breakdown
+            public List<ProviderBreakdownItem> ProviderBreakdown { get; set; } = new();
+        }
+
+        public class ProviderBreakdownItem
+        {
+            public string Provider { get; set; } = string.Empty;
+            public int Count { get; set; }
+            public decimal Percent { get; set; }
+        }
+        public class PagedListResponse<T>
+        {
+            public int Total { get; init; }
+            public int Page { get; init; }
+            public int PageSize { get; init; }
+            public IEnumerable<T> Items { get; set; } = Enumerable.Empty<T>();
+        }
+
+        public class ProviderWithSamples
+        {
+            public string Provider { get; set; } = string.Empty;
+            public int Count { get; set; }
+            public decimal Percent { get; set; }
+            public IEnumerable<object> Samples { get; set; } = Enumerable.Empty<object>();
+        }
         public class CardValuesResponse
         {
             public decimal ConfirmedAmount { get; set; }
