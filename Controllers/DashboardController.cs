@@ -21,6 +21,7 @@ namespace Ecoex_Academy_Api.Controllers
             _context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
+
         private const string OrderPaid = "paid";
         private const string OrderPending = "pending";
 
@@ -250,51 +251,101 @@ namespace Ecoex_Academy_Api.Controllers
 
 
         [HttpGet("list")]
-        public async Task<ActionResult<OrdersListResponse>> GetDashboardOrders(
-            [FromQuery] string? type,
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 50,
-            CancellationToken cancellationToken = default)
+        public async Task<ActionResult> GetDashboardOrders(
+          [FromQuery] string? type,
+          [FromQuery] int page = 1,
+          [FromQuery] int pageSize = 50,
+          CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(type))
             {
-                return BadRequest(new { message = "Query parameter 'type' is required. Allowed: revenue, claimed, abandoned, average." });
+                return BadRequest(new
+                {
+                    message = "Query parameter 'type' is required. Allowed: revenue, claimed, abandoned, average."
+                });
             }
 
             type = type.Trim().ToLowerInvariant();
 
-            if (page < 1) page = 1;
+            if (page < 1)
+                page = 1;
+
             pageSize = Math.Clamp(pageSize, 1, 200);
 
             var orders = _context.tb_Orders.AsNoTracking();
 
+            // ============================================================
+            // AVERAGE ORDER VALUE
+            // ============================================================
+
+            if (type == "aov")
+            {
+                var averageRows = await orders
+                    .Where(o =>
+                        o.Status != null &&
+                        o.Status.ToLower() == OrderPaid)
+                    .GroupBy(o => o.OrderType)
+                    .Select(g => new
+                    {
+                        orderType = g.Key,
+                        orders = g.Count(),
+                        average = Math.Round(g.Average(o => o.TotalAmount), 2)
+                    })
+                    .OrderBy(x => x.orderType)
+                    .ToListAsync(cancellationToken);
+
+                var total = averageRows.Count;
+
+                var items = averageRows
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToList();
+
+                return Ok(new
+                {
+                    total,
+                    page,
+                    pageSize,
+                    items
+                });
+            }
+
+            // ============================================================
+            // OTHER DASHBOARD REPORTS
+            // ============================================================
+
             IQueryable<Order> query = type switch
             {
                 "revenue" => orders.Where(o =>
-                    o.Status != null && o.Status.ToLower() == OrderPaid &&
-                    o.Payment != null && o.Payment.Status != null && o.Payment.Status.ToLower() == PaymentApproved),
+                    o.Status != null &&
+                    o.Status.ToLower() == OrderPaid &&
+                    o.Payment != null &&
+                    o.Payment.Status != null &&
+                    o.Payment.Status.ToLower() == PaymentApproved),
 
                 "claimed" => orders.Where(o =>
-                    o.Payment != null && o.Payment.Status != null && o.Payment.Status.ToLower() == PaymentPendingVerification),
+                    o.Payment != null &&
+                    o.Payment.Status != null &&
+                    o.Payment.Status.ToLower() == PaymentPendingVerification),
 
                 "abandoned" => orders.Where(o =>
-                    o.Status != null && o.Status.ToLower() == OrderPending),
-
-                "average" => orders.Where(o =>
-                    o.Status != null && o.Status.ToLower() == OrderPaid),
+                    o.Status != null &&
+                    o.Status.ToLower() == OrderPending),
 
                 _ => null
             };
 
             if (query == null)
             {
-                return BadRequest(new { message = "Invalid dashboard type. Allowed: revenue, claimed, abandoned, average." });
+                return BadRequest(new
+                {
+                    message = "Invalid dashboard type. Allowed: revenue, claimed, abandoned, average."
+                });
             }
 
-            // total count before paging
-            var total = await query.CountAsync(cancellationToken);
+            var totalOrders = await query.CountAsync(cancellationToken);
 
-            var items = await query
+            var itemsOrders = await query
                 .Include(o => o.PayerUser)
                 .Include(o => o.Payment)
                 .OrderByDescending(o => o.CreatedAt)
@@ -303,101 +354,103 @@ namespace Ecoex_Academy_Api.Controllers
                 .Select(o => new DashboardOrderItem
                 {
                     OrderId = o.OrderId,
-                    Payer = o.PayerUser != null ? o.PayerUser.Name : string.Empty,
+                    Payer = o.PayerUser != null
+                        ? o.PayerUser.Name
+                        : string.Empty,
                     Amount = o.TotalAmount,
-                    Utr = o.Payment != null ? o.Payment.Utr : null,
+                    Utr = o.Payment != null
+                        ? o.Payment.Utr
+                        : null,
                     OrderType = o.OrderType,
                     Status = o.Status,
                     CreatedAt = o.CreatedAt
                 })
                 .ToListAsync(cancellationToken);
 
-            var response = new OrdersListResponse
+            return Ok(new OrdersListResponse
             {
-                Total = total,
+                Total = totalOrders,
                 Page = page,
                 PageSize = pageSize,
-                Items = items
-            };
-
-            return Ok(response);
+                Items = itemsOrders
+            });
         }
-    }
 
-    public class CardValuesResponse
-    {
-        public decimal ConfirmedAmount { get; set; }
-        public int ConfirmedOrders { get; set; }
-        public decimal ConfirmedNetOfGst { get; set; }
+        public class CardValuesResponse
+        {
+            public decimal ConfirmedAmount { get; set; }
+            public int ConfirmedOrders { get; set; }
+            public decimal ConfirmedNetOfGst { get; set; }
 
-        public decimal ClaimedAmount { get; set; }
-        public int ClaimedOrders { get; set; }
-        public int ClaimedOldestHoursAgo { get; set; }
+            public decimal ClaimedAmount { get; set; }
+            public int ClaimedOrders { get; set; }
+            public int ClaimedOldestHoursAgo { get; set; }
 
-        public decimal AbandonedAmount { get; set; }
-        public int AbandonedOrders { get; set; }
-        public decimal AbandonedPercentage { get; set; }
+            public decimal AbandonedAmount { get; set; }
+            public int AbandonedOrders { get; set; }
+            public decimal AbandonedPercentage { get; set; }
 
-        public decimal AvgOrderValueOverall { get; set; }
-        public decimal AvgOrderValueIndividual { get; set; }
-        public decimal AvgOrderValueGroup { get; set; }
-    }
-    public class OrdersListResponse
-    {
-        public int Total { get; set; }
-        public int Page { get; set; }
-        public int PageSize { get; set; }
-        public List<DashboardOrderItem> Items { get; set; } = new();
-    }
+            public decimal AvgOrderValueOverall { get; set; }
+            public decimal AvgOrderValueIndividual { get; set; }
+            public decimal AvgOrderValueGroup { get; set; }
+        }
+        public class OrdersListResponse
+        {
+            public int Total { get; set; }
+            public int Page { get; set; }
+            public int PageSize { get; set; }
+            public List<DashboardOrderItem> Items { get; set; } = new();
+        }
 
-    public class DashboardResponse
-    {
-        public RevenueSummary ConfirmedRevenue { get; set; } = new();
-        public ClaimedSummary ClaimedNotYetVerified { get; set; } = new();
-        public AbandonedSummary AbandonedAtPayment { get; set; } = new();
-        public AverageOrderValueSummary AvgOrderValueByType { get; set; } = new();
-    }
+        public class DashboardResponse
+        {
+            public RevenueSummary ConfirmedRevenue { get; set; } = new();
+            public ClaimedSummary ClaimedNotYetVerified { get; set; } = new();
+            public AbandonedSummary AbandonedAtPayment { get; set; } = new();
+            public AverageOrderValueSummary AvgOrderValueByType { get; set; } = new();
+        }
 
-    public class DashboardOrderItem
-    {
-        public int OrderId { get; set; }
-        public string Payer { get; set; } = string.Empty;
-        public decimal Amount { get; set; }
-        public string? Utr { get; set; }
-        public string OrderType { get; set; } = string.Empty;
-        public string Status { get; set; } = string.Empty;
-        public DateTime CreatedAt { get; set; }
-    }
+        public class DashboardOrderItem
+        {
+            public int OrderId { get; set; }
+            public string Payer { get; set; } = string.Empty;
+            public decimal Amount { get; set; }
+            public string? Utr { get; set; }
+            public string OrderType { get; set; } = string.Empty;
+            public string Status { get; set; } = string.Empty;
+            public DateTime CreatedAt { get; set; }
+        }
 
-    public class RevenueSummary
-    {
-        public decimal Amount { get; set; }
-        public int Orders { get; set; }
-        public decimal NetOfGst { get; set; }
-        public List<DashboardOrderItem> Items { get; set; } = new();
-    }
+        public class RevenueSummary
+        {
+            public decimal Amount { get; set; }
+            public int Orders { get; set; }
+            public decimal NetOfGst { get; set; }
+            public List<DashboardOrderItem> Items { get; set; } = new();
+        }
 
-    public class ClaimedSummary
-    {
-        public decimal Amount { get; set; }
-        public int Orders { get; set; }
-        public int OldestHoursAgo { get; set; }
-        public List<DashboardOrderItem> Items { get; set; } = new();
-    }
+        public class ClaimedSummary
+        {
+            public decimal Amount { get; set; }
+            public int Orders { get; set; }
+            public int OldestHoursAgo { get; set; }
+            public List<DashboardOrderItem> Items { get; set; } = new();
+        }
 
-    public class AbandonedSummary
-    {
-        public decimal Amount { get; set; }
-        public int Orders { get; set; }
-        public decimal PercentageOfAllOrders { get; set; }
-        public List<DashboardOrderItem> Items { get; set; } = new();
-    }
+        public class AbandonedSummary
+        {
+            public decimal Amount { get; set; }
+            public int Orders { get; set; }
+            public decimal PercentageOfAllOrders { get; set; }
+            public List<DashboardOrderItem> Items { get; set; } = new();
+        }
 
-    public class AverageOrderValueSummary
-    {
-        public decimal Overall { get; set; }
-        public decimal Individual { get; set; }
-        public decimal Group { get; set; }
-        public List<DashboardOrderItem> Items { get; set; } = new();
+        public class AverageOrderValueSummary
+        {
+            public decimal Overall { get; set; }
+            public decimal Individual { get; set; }
+            public decimal Group { get; set; }
+            public List<DashboardOrderItem> Items { get; set; } = new();
+        }
     }
 }
