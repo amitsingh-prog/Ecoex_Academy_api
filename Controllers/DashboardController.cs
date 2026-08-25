@@ -31,7 +31,7 @@ namespace Ecoex_Academy_Api.Controllers
 
         [HttpGet("registration-revenue/cards")]
         public async Task<ActionResult<RegistrationRevenueCardsResponse>> GetRegistrationRevenueCards(
-      CancellationToken cancellationToken = default)
+          CancellationToken cancellationToken = default)
         {
             try
             {
@@ -60,8 +60,8 @@ namespace Ecoex_Academy_Api.Controllers
 
 
                 // ============================================================
-                // TODAY REGISTRATION
-                // Google / Email
+                // 1. TODAY REGISTRATION
+                //    Breakdown by Google / Email
                 // ============================================================
 
                 var todayRegistration = await todayOrders
@@ -72,10 +72,13 @@ namespace Ecoex_Academy_Api.Controllers
                         (o, u) => new
                         {
                             u.UserId,
-                            AuthProvider = u.AuthProvider ?? "email"
+                            AuthProvider = string.IsNullOrWhiteSpace(u.AuthProvider)
+                                ? "email"
+                                : u.AuthProvider
                         })
                     .Distinct()
                     .ToListAsync(cancellationToken);
+
 
                 var todayRegistrationByProvider = todayRegistration
                     .GroupBy(x => x.AuthProvider.ToLower())
@@ -88,8 +91,12 @@ namespace Ecoex_Academy_Api.Controllers
                     .ToList();
 
 
+                var todayRegistrationTotal =
+                    todayRegistrationByProvider.Sum(x => x.Count);
+
+
                 // ============================================================
-                // TODAY REVENUE
+                // 2. TODAY REVENUE
                 // ============================================================
 
                 var todayRevenueData = await todayOrders
@@ -101,20 +108,26 @@ namespace Ecoex_Academy_Api.Controllers
                     })
                     .ToListAsync(cancellationToken);
 
-                var todayRevenue = todayRevenueData
+
+                // Remove duplicate order rows
+                var todayRevenueOrders = todayRevenueData
                     .GroupBy(x => x.OrderId)
                     .Select(g => g.First())
                     .ToList();
 
-                var todayTotalRevenue = todayRevenue.Sum(x => x.TotalAmount);
-                var todayGst = todayRevenue.Sum(x => x.GstAmount);
+
+                var todayTotalRevenue =
+                    todayRevenueOrders.Sum(x => x.TotalAmount);
+
+                var todayGst =
+                    todayRevenueOrders.Sum(x => x.GstAmount);
 
 
                 // ============================================================
-                // TODAY REVENUE BY COURSE
+                // 2A. TODAY REVENUE BY COURSE
                 // ============================================================
 
-                var todayRevenueByCourse = await _context.tb_OrderCourses
+                var todayRevenueByCourseRaw = await _context.tb_OrderCourses
                     .AsNoTracking()
                     .Where(oc =>
                         oc.Order.CreatedAt >= today &&
@@ -124,22 +137,40 @@ namespace Ecoex_Academy_Api.Controllers
                         oc.Order.Payment != null &&
                         oc.Order.Payment.Status != null &&
                         oc.Order.Payment.Status.ToLower() == PaymentApproved)
-                    .GroupBy(oc => new
+                    .Select(oc => new
                     {
                         oc.CourseID,
-                        oc.Course.Name
+                        CourseName = oc.Course.Name,
+                        oc.OrderId,
+                        oc.Order.TotalAmount,
+
+                        OrderCourseCount = _context.tb_OrderCourses
+                            .Count(x => x.OrderId == oc.OrderId)
+                    })
+                    .ToListAsync(cancellationToken);
+
+
+                var todayRevenueByCourse = todayRevenueByCourseRaw
+                    .GroupBy(x => new
+                    {
+                        x.CourseID,
+                        x.CourseName
                     })
                     .Select(g => new CourseRevenueItem
                     {
                         CourseId = g.Key.CourseID,
-                        Course = g.Key.Name ?? "Unknown",
+                        Course = g.Key.CourseName ?? "Unknown",
 
+                        // Divide order amount between courses
                         Revenue = Math.Round(
-                            g.Sum(x => x.Order.TotalAmount),
+                            g.Sum(x =>
+                                x.OrderCourseCount > 0
+                                    ? x.TotalAmount / x.OrderCourseCount
+                                    : 0),
                             2)
                     })
                     .OrderByDescending(x => x.Revenue)
-                    .ToListAsync(cancellationToken);
+                    .ToList();
 
 
                 // ============================================================
@@ -156,49 +187,46 @@ namespace Ecoex_Academy_Api.Controllers
                         o.Payment.Status.ToLower() == PaymentApproved);
 
 
+
+
                 // ============================================================
                 // TOTAL REGISTRATION
+                // ALL VERIFIED USERS
+                // Breakdown by Google / Email
                 // ============================================================
 
-                var totalRegistration = await allOrders
-                    .Select(o => o.PayerUserId)
-                    .Distinct()
-                    .CountAsync(cancellationToken);
-
-
-                // ============================================================
-                // TOTAL REGISTRATION BY COURSE
-                // ============================================================
-
-                var totalRegistrationByCourse = await _context.tb_OrderCourses
+                var totalRegistrationUsers = await _context.tb_Users
                     .AsNoTracking()
-                    .Where(oc =>
-                        oc.Order.Status != null &&
-                        oc.Order.Status.ToLower() == OrderPaid &&
-                        oc.Order.Payment != null &&
-                        oc.Order.Payment.Status != null &&
-                        oc.Order.Payment.Status.ToLower() == PaymentApproved)
-                    .GroupBy(oc => new
+                    .Where(u =>
+                        u.EmailVerified == true ||
+                        u.MobileVerified == true)
+                    .Select(u => new
                     {
-                        oc.CourseID,
-                        oc.Course.Name
+                        u.UserId,
+                        AuthProvider = string.IsNullOrWhiteSpace(u.AuthProvider)
+                            ? "email"
+                            : u.AuthProvider
                     })
-                    .Select(g => new CourseRegistrationItem
-                    {
-                        CourseId = g.Key.CourseID,
-                        Course = g.Key.Name ?? "Unknown",
-
-                        Count = g
-                            .Select(x => x.Order.PayerUserId)
-                            .Distinct()
-                            .Count()
-                    })
-                    .OrderByDescending(x => x.Count)
                     .ToListAsync(cancellationToken);
 
 
+                var totalRegistrationByProvider = totalRegistrationUsers
+                    .GroupBy(x => x.AuthProvider.ToLower())
+                    .Select(g => new RegistrationProviderItem
+                    {
+                        Provider = g.Key,
+                        Count = g.Count()
+                    })
+                    .OrderByDescending(x => x.Count)
+                    .ToList();
+
+
+                var totalRegistration =
+                    totalRegistrationByProvider.Sum(x => x.Count);
+
+
                 // ============================================================
-                // TOTAL REVENUE
+                // 4. TOTAL REVENUE
                 // ============================================================
 
                 var totalRevenueData = await allOrders
@@ -210,20 +238,26 @@ namespace Ecoex_Academy_Api.Controllers
                     })
                     .ToListAsync(cancellationToken);
 
+
+                // Remove duplicate order rows
                 var totalRevenueOrders = totalRevenueData
                     .GroupBy(x => x.OrderId)
                     .Select(g => g.First())
                     .ToList();
 
-                var totalRevenue = totalRevenueOrders.Sum(x => x.TotalAmount);
-                var totalGst = totalRevenueOrders.Sum(x => x.GstAmount);
+
+                var totalRevenue =
+                    totalRevenueOrders.Sum(x => x.TotalAmount);
+
+                var totalGst =
+                    totalRevenueOrders.Sum(x => x.GstAmount);
 
 
                 // ============================================================
-                // TOTAL REVENUE BY COURSE
+                // 4A. TOTAL REVENUE BY COURSE
                 // ============================================================
 
-                var objordercourses = await _context.tb_OrderCourses
+                var totalRevenueByCourseRaw = await _context.tb_OrderCourses
                     .AsNoTracking()
                     .Where(oc =>
                         oc.Order.Status != null &&
@@ -238,27 +272,32 @@ namespace Ecoex_Academy_Api.Controllers
                         oc.OrderId,
                         oc.Order.TotalAmount,
 
-                        orderidCount = _context.tb_OrderCourses
-                            .Count(s => s.OrderId == oc.OrderId)
+                        OrderCourseCount = _context.tb_OrderCourses
+                            .Count(x => x.OrderId == oc.OrderId)
                     })
-                    .ToListAsync();
+                    .ToListAsync(cancellationToken);
 
-                var totalRevenueByCourse = objordercourses
-                    .GroupBy(oc => new
+
+                var totalRevenueByCourse = totalRevenueByCourseRaw
+                    .GroupBy(x => new
                     {
-                        oc.CourseID,
-                        oc.CourseName
+                        x.CourseID,
+                        x.CourseName
                     })
                     .Select(g => new CourseRevenueItem
                     {
                         CourseId = g.Key.CourseID,
-                        Course = g.Key.CourseName,
-                        Revenue = g.Sum(x => x.TotalAmount / x.orderidCount)
+                        Course = g.Key.CourseName ?? "Unknown",
+
+                        Revenue = Math.Round(
+                            g.Sum(x =>
+                                x.OrderCourseCount > 0
+                                    ? x.TotalAmount / x.OrderCourseCount
+                                    : 0),
+                            2)
                     })
+                    .OrderByDescending(x => x.Revenue)
                     .ToList();
-
-
-
 
 
                 // ============================================================
@@ -267,32 +306,60 @@ namespace Ecoex_Academy_Api.Controllers
 
                 var response = new RegistrationRevenueCardsResponse
                 {
+                    // --------------------------------------------------------
+                    // TODAY REGISTRATION
+                    // --------------------------------------------------------
+
                     TodayRegistration = new TodayRegistrationCard
                     {
-                        Total = todayRegistration.Count,
+                        Total = todayRegistrationTotal,
                         ByProvider = todayRegistrationByProvider
                     },
+
+
+                    // --------------------------------------------------------
+                    // TODAY REVENUE
+                    // --------------------------------------------------------
 
                     TodayRevenue = new TodayRevenueCard
                     {
                         Total = decimal.Round(todayTotalRevenue, 2),
-                        WithoutGst = decimal.Round(todayTotalRevenue - todayGst, 2),
+
+                        WithoutGst = decimal.Round(
+                            todayTotalRevenue - todayGst,
+                            2),
+
                         ByCourse = todayRevenueByCourse
                     },
+
+
+                    // --------------------------------------------------------
+                    // TOTAL REGISTRATION
+                    // --------------------------------------------------------
 
                     TotalRegistration = new TotalRegistrationCard
                     {
                         Total = totalRegistration,
-                        ByCourse = totalRegistrationByCourse
+                        ByProvider = totalRegistrationByProvider
                     },
+
+
+                    // --------------------------------------------------------
+                    // TOTAL REVENUE
+                    // --------------------------------------------------------
 
                     TotalRevenue = new TotalRevenueCard
                     {
                         Total = decimal.Round(totalRevenue, 2),
-                        WithoutGst = decimal.Round(totalRevenue - totalGst, 2),
+
+                        WithoutGst = decimal.Round(
+                            totalRevenue - totalGst,
+                            2),
+
                         ByCourse = totalRevenueByCourse
                     }
                 };
+
 
                 return Ok(response);
             }
@@ -310,7 +377,6 @@ namespace Ecoex_Academy_Api.Controllers
                     statusCode: 500);
             }
         }
-
         public class RegistrationRevenueCardsResponse
         {
             public TodayRegistrationCard TodayRegistration { get; set; } = new();
@@ -323,6 +389,10 @@ namespace Ecoex_Academy_Api.Controllers
         }
 
 
+        // ============================================================
+        // TODAY REGISTRATION
+        // ============================================================
+
         public class TodayRegistrationCard
         {
             public int Total { get; set; }
@@ -331,6 +401,10 @@ namespace Ecoex_Academy_Api.Controllers
         }
 
 
+        // ============================================================
+        // REGISTRATION PROVIDER
+        // ============================================================
+
         public class RegistrationProviderItem
         {
             public string Provider { get; set; } = string.Empty;
@@ -338,6 +412,10 @@ namespace Ecoex_Academy_Api.Controllers
             public int Count { get; set; }
         }
 
+
+        // ============================================================
+        // TODAY REVENUE
+        // ============================================================
 
         public class TodayRevenueCard
         {
@@ -349,13 +427,21 @@ namespace Ecoex_Academy_Api.Controllers
         }
 
 
+        // ============================================================
+        // TOTAL REGISTRATION
+        // ============================================================
+
         public class TotalRegistrationCard
         {
             public int Total { get; set; }
 
-            public List<CourseRegistrationItem> ByCourse { get; set; } = new();
+            public List<RegistrationProviderItem> ByProvider { get; set; } = new();
         }
 
+
+        // ============================================================
+        // TOTAL REVENUE
+        // ============================================================
 
         public class TotalRevenueCard
         {
@@ -367,13 +453,17 @@ namespace Ecoex_Academy_Api.Controllers
         }
 
 
-        public class CourseRegistrationItem
+        // ============================================================
+        // COURSE REVENUE
+        // ============================================================
+
+        public class CourseRevenueItem
         {
             public int? CourseId { get; set; }
 
             public string Course { get; set; } = string.Empty;
 
-            public int Count { get; set; }
+            public decimal Revenue { get; set; }
         }
 
         [HttpGet("cards")]
@@ -1464,14 +1554,7 @@ namespace Ecoex_Academy_Api.Controllers
         }
 
 
-        public class CourseRevenueItem
-        {
-            public int? CourseId { get; set; }
 
-            public string Course { get; set; } = string.Empty;
-
-            public decimal Revenue { get; set; }
-        }
 
 
         public class GroupSalesCardsResponse
