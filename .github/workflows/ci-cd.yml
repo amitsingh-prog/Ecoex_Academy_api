@@ -1,195 +1,104 @@
 name: ASP.NET Core CI/CD
 
-
 on:
   push:
     branches:
       - main
 
+  workflow_dispatch:
 
 jobs:
 
-
-# ==================================================
-# 1. BUILD JOB
-# Compile ASP.NET Core Application
-# ==================================================
-
-  build:
+  deploy:
 
     runs-on: ubuntu-latest
 
-
     steps:
+
+    # ==================================================
+    # 1. CHECKOUT
+    # ==================================================
 
     - name: Checkout Repository
       uses: actions/checkout@v4
 
+
+    # ==================================================
+    # 2. SETUP .NET
+    # ==================================================
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
 
+
+    # ==================================================
+    # 3. RESTORE
+    # ==================================================
 
     - name: Restore NuGet Packages
       run: dotnet restore
 
 
+    # ==================================================
+    # 4. BUILD
+    # ==================================================
+
     - name: Build Application
       run: dotnet build --configuration Release --no-restore
 
- 
 
-# ==================================================
-# 2. PUBLISH JOB
-# Generate Production Files
-# ==================================================
-
-  publish:
-
-
-    needs: build
-
-    runs-on: ubuntu-latest
-
-
-    steps:
-
-
-    - name: Checkout Repository
-      uses: actions/checkout@v4
-
-
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
-
-
-    - name: Restore Packages
-      run: dotnet restore
-
+    # ==================================================
+    # 5. PUBLISH
+    # ==================================================
 
     - name: Publish Application
-      run: dotnet publish --configuration Release --output ./publish
+      run: dotnet publish \
+        --configuration Release \
+        --no-build \
+        --output ./publish
 
 
-    - name: Upload Publish Artifact
-      uses: actions/upload-artifact@v4
-
-      with:
-
-        name: publish-files
-
-        path: ./publish
-
-        
-# ==================================================
-# 4. DEPLOY JOB
-# Copy Files To Ubuntu Server
-# ==================================================
-
-  deploy:
-
-
-    needs: publish
-
-    runs-on: ubuntu-latest
-
-
-    steps:
-
-
-    - name: Download Publish Artifact
-      uses: actions/download-artifact@v4
-
-      with:
-
-        name: publish-files
-
-        path: ./publish
-
-
+    # ==================================================
+    # 6. DEPLOY DIRECTLY TO SERVER
+    # No GitHub Artifact
+    # ==================================================
 
     - name: Copy Files To Server
       uses: appleboy/scp-action@v0.1.7
-
       with:
-
         host: ${{ secrets.HOST }}
-
         username: ${{ secrets.USERNAME }}
-
         password: ${{ secrets.PASSWORD }}
-
 
         source: "./publish/*"
 
-
         target: "/root/Ecoex/Projects/Ecoex_Academy_AdminPanel/Api/Publish"
 
-
         overwrite: true
-
         strip_components: 1
 
 
-
-
-# ==================================================
-# 5. RESTART SERVICE JOB
-# Restart ASP.NET Core Systemd Service
-# ==================================================
-
-  restart-service:
-
-
-    needs: deploy
-
-    runs-on: ubuntu-latest
-
-
-    steps:
-
+    # ==================================================
+    # 7. RESTART ASP.NET CORE SERVICE
+    # ==================================================
 
     - name: Restart ASP.NET Core Service
-
       uses: appleboy/ssh-action@v1.2.0
-
-
       with:
-
         host: ${{ secrets.HOST }}
-
         username: ${{ secrets.USERNAME }}
-
         password: ${{ secrets.PASSWORD }}
-
 
         script: |
 
-          systemctl restart ecoeex-academy-api   
-          systemctl status ecoeex-academy-api   --no-pager
+          echo "Restarting Ecoex Academy API..."
 
+          systemctl restart ecoeex-academy-api
 
-   # ==================================================
-  # 7. DELETE ARTIFACT
-  # Delete publish artifact after successful deployment
-  # ==================================================
+          echo "Checking service status..."
 
-  cleanup:
+          systemctl status ecoeex-academy-api --no-pager
 
-    needs: restart-service
-
-    runs-on: ubuntu-latest
-
-    permissions:
-      actions: write
-
-    steps:
-
-    - name: Delete Publish Artifact
-      uses: geekyeggo/delete-artifact@v5
-      with:
-        name: publish-files
+          echo "Deployment completed successfully."
