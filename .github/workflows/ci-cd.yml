@@ -9,97 +9,267 @@ on:
 
 jobs:
 
+  # ==================================================
+  # DEPLOY JOB
+  # Build → Publish → Deploy → Restart
+  # ==================================================
+
   deploy:
 
     runs-on: ubuntu-latest
 
     steps:
 
-    # ==================================================
-    # 1. CHECKOUT
-    # ==================================================
+      # ==================================================
+      # 1. CHECKOUT REPOSITORY
+      # ==================================================
 
-    - name: Checkout Repository
-      uses: actions/checkout@v4
-
-
-    # ==================================================
-    # 2. SETUP .NET
-    # ==================================================
-
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
 
-    # ==================================================
-    # 3. RESTORE
-    # ==================================================
+      # ==================================================
+      # 2. SETUP .NET 8
+      # ==================================================
 
-    - name: Restore NuGet Packages
-      run: dotnet restore
-
-
-    # ==================================================
-    # 4. BUILD
-    # ==================================================
-
-    - name: Build Application
-      run: dotnet build --configuration Release --no-restore
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
 
 
-    # ==================================================
-    # 5. PUBLISH
-    # ==================================================
+      # ==================================================
+      # 3. VERIFY .NET VERSION
+      # ==================================================
 
-    - name: Publish Application
-      run: |
-            dotnet publish \
+      - name: Check .NET Version
+        run: |
+          echo "Installed .NET version:"
+          dotnet --version
+
+          echo ""
+          echo "Installed .NET SDKs:"
+          dotnet --list-sdks
+
+
+      # ==================================================
+      # 4. RESTORE NUGET PACKAGES
+      # ==================================================
+
+      - name: Restore NuGet Packages
+        run: |
+          dotnet restore
+
+
+      # ==================================================
+      # 5. BUILD APPLICATION
+      # ==================================================
+
+      - name: Build Application
+        run: |
+          dotnet build \
+            --configuration Release \
+            --no-restore
+
+
+      # ==================================================
+      # 6. PUBLISH APPLICATION
+      # ==================================================
+
+      - name: Publish Application
+        run: |
+          dotnet publish \
             --configuration Release \
             --no-build \
             --output ./publish
 
 
-    # ==================================================
-    # 6. DEPLOY DIRECTLY TO SERVER
-    # No GitHub Artifact
-    # ==================================================
+      # ==================================================
+      # 7. VERIFY PUBLISH OUTPUT
+      # ==================================================
 
-    - name: Copy Files To Server
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        password: ${{ secrets.PASSWORD }}
+      - name: Verify Publish Output
+        run: |
+          echo "Published files:"
+          find ./publish -type f
 
-        source: "./publish/*"
-
-        target: "/root/Ecoex/Projects/Ecoex_Academy_AdminPanel/Api/Publish"
-
-        overwrite: true
-        strip_components: 1
+          echo ""
+          echo "Publish directory size:"
+          du -sh ./publish
 
 
-    # ==================================================
-    # 7. RESTART ASP.NET CORE SERVICE
-    # ==================================================
+      # ==================================================
+      # 8. DEPLOY TO VPS
+      #
+      # Retry up to 3 times if SCP fails
+      # ==================================================
 
-    - name: Restart ASP.NET Core Service
-      uses: appleboy/ssh-action@v1.2.0
-      with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        password: ${{ secrets.PASSWORD }}
+      - name: Copy Files To Server
+        uses: nick-invision/assert-action@v2
+        if: ${{ false }}
 
-        script: |
+      - name: Deploy To VPS - Attempt 1
+        id: deploy1
+        continue-on-error: true
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          source: "./publish/*"
+          target: "/root/Ecoex/Projects/Ecoex_Academy_AdminPanel/Api/Publish"
+          overwrite: true
+          strip_components: 1
 
-          echo "Restarting Ecoex Academy API..."
+      - name: Deploy To VPS - Attempt 2
+        if: steps.deploy1.outcome == 'failure'
+        id: deploy2
+        continue-on-error: true
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          source: "./publish/*"
+          target: "/root/Ecoex/Projects/Ecoex_Academy_AdminPanel/Api/Publish"
+          overwrite: true
+          strip_components: 1
 
-          systemctl restart ecoeex-academy-api
+      - name: Deploy To VPS - Attempt 3
+        if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        id: deploy3
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          source: "./publish/*"
+          target: "/root/Ecoex/Projects/Ecoex_Academy_AdminPanel/Api/Publish"
+          overwrite: true
+          strip_components: 1
 
-          echo "Checking service status..."
 
-          systemctl status ecoeex-academy-api --no-pager
+      # ==================================================
+      # 9. VERIFY DEPLOYMENT
+      # ==================================================
 
-          echo "Deployment completed successfully."
+      - name: Verify Deployment
+        if: always()
+        run: |
+          if [ "${{ steps.deploy1.outcome }}" = "success" ] || \
+             [ "${{ steps.deploy2.outcome }}" = "success" ] || \
+             [ "${{ steps.deploy3.outcome }}" = "success" ]; then
+
+            echo "Deployment to VPS succeeded."
+
+          else
+
+            echo "Deployment failed after 3 attempts."
+            exit 1
+
+          fi
+
+
+      # ==================================================
+      # 10. RESTART SERVICE - ATTEMPT 1
+      # ==================================================
+
+      - name: Restart Service - Attempt 1
+        id: restart1
+        if: success()
+        continue-on-error: true
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          script: |
+
+            echo "Restarting Ecoex Academy API..."
+
+            systemctl restart ecoeex-academy-api
+
+            sleep 3
+
+            systemctl is-active --quiet ecoeex-academy-api
+
+            echo "Service restarted successfully."
+
+
+      # ==================================================
+      # 11. RESTART SERVICE - ATTEMPT 2
+      # ==================================================
+
+      - name: Restart Service - Attempt 2
+        id: restart2
+        if: steps.restart1.outcome == 'failure'
+        continue-on-error: true
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          script: |
+
+            echo "Restart attempt 2..."
+
+            systemctl restart ecoeex-academy-api
+
+            sleep 3
+
+            systemctl is-active --quiet ecoeex-academy-api
+
+            echo "Service restarted successfully."
+
+
+      # ==================================================
+      # 12. RESTART SERVICE - ATTEMPT 3
+      # ==================================================
+
+      - name: Restart Service - Attempt 3
+        id: restart3
+        if: steps.restart1.outcome == 'failure' && steps.restart2.outcome == 'failure'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          script: |
+
+            echo "Restart attempt 3..."
+
+            systemctl restart ecoeex-academy-api
+
+            sleep 3
+
+            systemctl is-active --quiet ecoeex-academy-api
+
+            systemctl status ecoeex-academy-api --no-pager
+
+            echo "Service restarted successfully."
+
+
+      # ==================================================
+      # 13. FINAL STATUS
+      # ==================================================
+
+      - name: Deployment Completed
+        run: |
+
+          if [ "${{ steps.restart1.outcome }}" = "success" ] || \
+             [ "${{ steps.restart2.outcome }}" = "success" ] || \
+             [ "${{ steps.restart3.outcome }}" = "success" ]; then
+
+            echo "=========================================="
+            echo "Deployment completed successfully"
+            echo "=========================================="
+
+          else
+
+            echo "=========================================="
+            echo "Deployment failed after 3 attempts"
+            echo "=========================================="
+
+            exit 1
+
+          fi
