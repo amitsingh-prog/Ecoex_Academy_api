@@ -1,5 +1,6 @@
 ﻿using Ecoeex_Academy_Api.Data;
 using Ecoeex_Academy_Api.Model;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -28,6 +29,352 @@ namespace Ecoex_Academy_Api.Controllers
         private const string PaymentApproved = "approved";
         private const string PaymentPendingVerification = "pending verification";
 
+        [HttpGet("registration-revenue/cards")]
+        public async Task<ActionResult<RegistrationRevenueCardsResponse>> GetRegistrationRevenueCards(
+      CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                // ============================================================
+                // DATE RANGE FOR TODAY
+                // ============================================================
+
+                var today = DateTime.Today;
+                var tomorrow = today.AddDays(1);
+
+
+                // ============================================================
+                // TODAY - PAID + APPROVED ORDERS
+                // ============================================================
+
+                var todayOrders = _context.tb_Orders
+                    .AsNoTracking()
+                    .Where(o =>
+                        o.CreatedAt >= today &&
+                        o.CreatedAt < tomorrow &&
+                        o.Status != null &&
+                        o.Status.ToLower() == OrderPaid &&
+                        o.Payment != null &&
+                        o.Payment.Status != null &&
+                        o.Payment.Status.ToLower() == PaymentApproved);
+
+
+                // ============================================================
+                // TODAY REGISTRATION
+                // Google / Email
+                // ============================================================
+
+                var todayRegistration = await todayOrders
+                    .Join(
+                        _context.tb_Users.AsNoTracking(),
+                        o => o.PayerUserId,
+                        u => u.UserId,
+                        (o, u) => new
+                        {
+                            u.UserId,
+                            AuthProvider = u.AuthProvider ?? "email"
+                        })
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+
+                var todayRegistrationByProvider = todayRegistration
+                    .GroupBy(x => x.AuthProvider.ToLower())
+                    .Select(g => new RegistrationProviderItem
+                    {
+                        Provider = g.Key,
+                        Count = g.Count()
+                    })
+                    .OrderByDescending(x => x.Count)
+                    .ToList();
+
+
+                // ============================================================
+                // TODAY REVENUE
+                // ============================================================
+
+                var todayRevenueData = await todayOrders
+                    .Select(o => new
+                    {
+                        o.OrderId,
+                        o.TotalAmount,
+                        o.GstAmount
+                    })
+                    .ToListAsync(cancellationToken);
+
+                var todayRevenue = todayRevenueData
+                    .GroupBy(x => x.OrderId)
+                    .Select(g => g.First())
+                    .ToList();
+
+                var todayTotalRevenue = todayRevenue.Sum(x => x.TotalAmount);
+                var todayGst = todayRevenue.Sum(x => x.GstAmount);
+
+
+                // ============================================================
+                // TODAY REVENUE BY COURSE
+                // ============================================================
+
+                var todayRevenueByCourse = await _context.tb_OrderCourses
+                    .AsNoTracking()
+                    .Where(oc =>
+                        oc.Order.CreatedAt >= today &&
+                        oc.Order.CreatedAt < tomorrow &&
+                        oc.Order.Status != null &&
+                        oc.Order.Status.ToLower() == OrderPaid &&
+                        oc.Order.Payment != null &&
+                        oc.Order.Payment.Status != null &&
+                        oc.Order.Payment.Status.ToLower() == PaymentApproved)
+                    .GroupBy(oc => new
+                    {
+                        oc.CourseID,
+                        oc.Course.Name
+                    })
+                    .Select(g => new CourseRevenueItem
+                    {
+                        CourseId = g.Key.CourseID,
+                        Course = g.Key.Name ?? "Unknown",
+
+                        Revenue = Math.Round(
+                            g.Sum(x => x.Order.TotalAmount),
+                            2)
+                    })
+                    .OrderByDescending(x => x.Revenue)
+                    .ToListAsync(cancellationToken);
+
+
+                // ============================================================
+                // OVERALL - PAID + APPROVED ORDERS
+                // ============================================================
+
+                var allOrders = _context.tb_Orders
+                    .AsNoTracking()
+                    .Where(o =>
+                        o.Status != null &&
+                        o.Status.ToLower() == OrderPaid &&
+                        o.Payment != null &&
+                        o.Payment.Status != null &&
+                        o.Payment.Status.ToLower() == PaymentApproved);
+
+
+                // ============================================================
+                // TOTAL REGISTRATION
+                // ============================================================
+
+                var totalRegistration = await allOrders
+                    .Select(o => o.PayerUserId)
+                    .Distinct()
+                    .CountAsync(cancellationToken);
+
+
+                // ============================================================
+                // TOTAL REGISTRATION BY COURSE
+                // ============================================================
+
+                var totalRegistrationByCourse = await _context.tb_OrderCourses
+                    .AsNoTracking()
+                    .Where(oc =>
+                        oc.Order.Status != null &&
+                        oc.Order.Status.ToLower() == OrderPaid &&
+                        oc.Order.Payment != null &&
+                        oc.Order.Payment.Status != null &&
+                        oc.Order.Payment.Status.ToLower() == PaymentApproved)
+                    .GroupBy(oc => new
+                    {
+                        oc.CourseID,
+                        oc.Course.Name
+                    })
+                    .Select(g => new CourseRegistrationItem
+                    {
+                        CourseId = g.Key.CourseID,
+                        Course = g.Key.Name ?? "Unknown",
+
+                        Count = g
+                            .Select(x => x.Order.PayerUserId)
+                            .Distinct()
+                            .Count()
+                    })
+                    .OrderByDescending(x => x.Count)
+                    .ToListAsync(cancellationToken);
+
+
+                // ============================================================
+                // TOTAL REVENUE
+                // ============================================================
+
+                var totalRevenueData = await allOrders
+                    .Select(o => new
+                    {
+                        o.OrderId,
+                        o.TotalAmount,
+                        o.GstAmount
+                    })
+                    .ToListAsync(cancellationToken);
+
+                var totalRevenueOrders = totalRevenueData
+                    .GroupBy(x => x.OrderId)
+                    .Select(g => g.First())
+                    .ToList();
+
+                var totalRevenue = totalRevenueOrders.Sum(x => x.TotalAmount);
+                var totalGst = totalRevenueOrders.Sum(x => x.GstAmount);
+
+
+                // ============================================================
+                // TOTAL REVENUE BY COURSE
+                // ============================================================
+
+                var objordercourses = await _context.tb_OrderCourses
+                    .AsNoTracking()
+                    .Where(oc =>
+                        oc.Order.Status != null &&
+                        oc.Order.Status.ToLower() == OrderPaid &&
+                        oc.Order.Payment != null &&
+                        oc.Order.Payment.Status != null &&
+                        oc.Order.Payment.Status.ToLower() == PaymentApproved)
+                    .Select(oc => new
+                    {
+                        oc.CourseID,
+                        CourseName = oc.Course.Name,
+                        oc.OrderId,
+                        oc.Order.TotalAmount,
+
+                        orderidCount = _context.tb_OrderCourses
+                            .Count(s => s.OrderId == oc.OrderId)
+                    })
+                    .ToListAsync();
+
+                var totalRevenueByCourse = objordercourses
+                    .GroupBy(oc => new
+                    {
+                        oc.CourseID,
+                        oc.CourseName
+                    })
+                    .Select(g => new CourseRevenueItem
+                    {
+                        CourseId = g.Key.CourseID,
+                        Course = g.Key.CourseName,
+                        Revenue = g.Sum(x => x.TotalAmount / x.orderidCount)
+                    })
+                    .ToList();
+
+
+
+
+
+                // ============================================================
+                // FINAL RESPONSE
+                // ============================================================
+
+                var response = new RegistrationRevenueCardsResponse
+                {
+                    TodayRegistration = new TodayRegistrationCard
+                    {
+                        Total = todayRegistration.Count,
+                        ByProvider = todayRegistrationByProvider
+                    },
+
+                    TodayRevenue = new TodayRevenueCard
+                    {
+                        Total = decimal.Round(todayTotalRevenue, 2),
+                        WithoutGst = decimal.Round(todayTotalRevenue - todayGst, 2),
+                        ByCourse = todayRevenueByCourse
+                    },
+
+                    TotalRegistration = new TotalRegistrationCard
+                    {
+                        Total = totalRegistration,
+                        ByCourse = totalRegistrationByCourse
+                    },
+
+                    TotalRevenue = new TotalRevenueCard
+                    {
+                        Total = decimal.Round(totalRevenue, 2),
+                        WithoutGst = decimal.Round(totalRevenue - totalGst, 2),
+                        ByCourse = totalRevenueByCourse
+                    }
+                };
+
+                return Ok(response);
+            }
+            catch (OperationCanceledException)
+            {
+                return BadRequest(new
+                {
+                    message = "Request was cancelled."
+                });
+            }
+            catch (Exception ex)
+            {
+                return Problem(
+                    detail: ex.Message,
+                    statusCode: 500);
+            }
+        }
+
+        public class RegistrationRevenueCardsResponse
+        {
+            public TodayRegistrationCard TodayRegistration { get; set; } = new();
+
+            public TodayRevenueCard TodayRevenue { get; set; } = new();
+
+            public TotalRegistrationCard TotalRegistration { get; set; } = new();
+
+            public TotalRevenueCard TotalRevenue { get; set; } = new();
+        }
+
+
+        public class TodayRegistrationCard
+        {
+            public int Total { get; set; }
+
+            public List<RegistrationProviderItem> ByProvider { get; set; } = new();
+        }
+
+
+        public class RegistrationProviderItem
+        {
+            public string Provider { get; set; } = string.Empty;
+
+            public int Count { get; set; }
+        }
+
+
+        public class TodayRevenueCard
+        {
+            public decimal Total { get; set; }
+
+            public decimal WithoutGst { get; set; }
+
+            public List<CourseRevenueItem> ByCourse { get; set; } = new();
+        }
+
+
+        public class TotalRegistrationCard
+        {
+            public int Total { get; set; }
+
+            public List<CourseRegistrationItem> ByCourse { get; set; } = new();
+        }
+
+
+        public class TotalRevenueCard
+        {
+            public decimal Total { get; set; }
+
+            public decimal WithoutGst { get; set; }
+
+            public List<CourseRevenueItem> ByCourse { get; set; } = new();
+        }
+
+
+        public class CourseRegistrationItem
+        {
+            public int? CourseId { get; set; }
+
+            public string Course { get; set; } = string.Empty;
+
+            public int Count { get; set; }
+        }
 
         [HttpGet("cards")]
         public async Task<ActionResult<CardValuesResponse>> GetCardValues(CancellationToken cancellationToken)
