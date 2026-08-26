@@ -128,6 +128,7 @@ builder.Services.AddCors(options =>
     });
 });
 QuestPDF.Settings.License = LicenseType.Community; // add this line
+
 // ============================================================
 // BUILD APPLICATION
 // ============================================================
@@ -136,11 +137,8 @@ var app = builder.Build();
 
 app.UseForwardedHeaders();
 
-
 app.UseSwagger();
 app.UseSwaggerUI();
-
-
 
 // ============================================================
 // HTTPS
@@ -155,20 +153,17 @@ app.UseCors("AngularApp");
 
 app.UseAuthentication();
 
-
 // ============================================================
 // AUTHORIZATION
 // ============================================================
 
 app.UseAuthorization();
 
-
 // ============================================================
 // CONTROLLERS
 // ============================================================
 
 app.MapControllers();
-
 
 // ============================================================
 // RUN

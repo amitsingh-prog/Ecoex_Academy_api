@@ -377,94 +377,7 @@ namespace Ecoex_Academy_Api.Controllers
                     statusCode: 500);
             }
         }
-        public class RegistrationRevenueCardsResponse
-        {
-            public TodayRegistrationCard TodayRegistration { get; set; } = new();
 
-            public TodayRevenueCard TodayRevenue { get; set; } = new();
-
-            public TotalRegistrationCard TotalRegistration { get; set; } = new();
-
-            public TotalRevenueCard TotalRevenue { get; set; } = new();
-        }
-
-
-        // ============================================================
-        // TODAY REGISTRATION
-        // ============================================================
-
-        public class TodayRegistrationCard
-        {
-            public int Total { get; set; }
-
-            public List<RegistrationProviderItem> ByProvider { get; set; } = new();
-        }
-
-
-        // ============================================================
-        // REGISTRATION PROVIDER
-        // ============================================================
-
-        public class RegistrationProviderItem
-        {
-            public string Provider { get; set; } = string.Empty;
-
-            public int Count { get; set; }
-        }
-
-
-        // ============================================================
-        // TODAY REVENUE
-        // ============================================================
-
-        public class TodayRevenueCard
-        {
-            public decimal Total { get; set; }
-
-            public decimal WithoutGst { get; set; }
-
-            public List<CourseRevenueItem> ByCourse { get; set; } = new();
-        }
-
-
-        // ============================================================
-        // TOTAL REGISTRATION
-        // ============================================================
-
-        public class TotalRegistrationCard
-        {
-            public int Total { get; set; }
-
-            public List<RegistrationProviderItem> ByProvider { get; set; } = new();
-        }
-
-
-        // ============================================================
-        // TOTAL REVENUE
-        // ============================================================
-
-        public class TotalRevenueCard
-        {
-            public decimal Total { get; set; }
-
-            public decimal WithoutGst { get; set; }
-
-            public List<CourseRevenueItem> ByCourse { get; set; } = new();
-        }
-
-
-        // ============================================================
-        // COURSE REVENUE
-        // ============================================================
-
-        public class CourseRevenueItem
-        {
-            public int? CourseId { get; set; }
-
-            public string Course { get; set; } = string.Empty;
-
-            public decimal Revenue { get; set; }
-        }
 
         [HttpGet("cards")]
         public async Task<ActionResult<CardValuesResponse>> GetCardValues(CancellationToken cancellationToken)
@@ -1519,7 +1432,144 @@ namespace Ecoex_Academy_Api.Controllers
             }
         }
 
+        [HttpGet("graph")]
+        public async Task<ActionResult> GetGraphData(CancellationToken cancellationtoken)
+        {
 
+            DateTime today = DateTime.UtcNow;
+            DateTime lastsixthday = DateTime.UtcNow.AddDays(-6);
+            var graphData_revenue = await _context.tb_Orders
+                .AsNoTracking()
+                .Where(o =>
+                    o.Status != null &&
+                    o.Status.ToLower() == OrderPaid &&
+                    o.Payment != null &&
+                    o.Payment.Status != null &&
+                    o.Payment.Status.ToLower() == PaymentApproved &&
+                    o.CreatedAt >= lastsixthday && o.CreatedAt <= today
+                    )
+                .GroupBy(g => g.CreatedAt.Date)
+                .Select(g => new
+                {
+                    CreatedAt = g.Key,
+                    TotalRevenue = g.Sum(x => x.TotalAmount),
+                })
+                .OrderBy(x => x.CreatedAt)
+                .ToListAsync(cancellationtoken);
+
+
+            var graphData_registration = await _context.tb_Users
+               .AsNoTracking()
+               .Where(o =>
+               (o.EmailVerified == true || o.MobileVerified == true) &&
+                   o.CreatedAt >= lastsixthday && o.CreatedAt <= today
+                   )
+               .GroupBy(g => g.CreatedAt.Date)
+               .Select(g => new
+               {
+                   CreatedAt = g.Key,
+                   TotalRegistration = g.Count()
+               })
+               .OrderBy(x => x.CreatedAt)
+               .ToListAsync(cancellationtoken);
+
+
+            return Ok(new
+            {
+                revenue = graphData_revenue,
+                registrations = graphData_registration
+
+            });
+        }
+
+        public class RegistrationRevenueCardsResponse
+        {
+            public TodayRegistrationCard TodayRegistration { get; set; } = new();
+
+            public TodayRevenueCard TodayRevenue { get; set; } = new();
+
+            public TotalRegistrationCard TotalRegistration { get; set; } = new();
+
+            public TotalRevenueCard TotalRevenue { get; set; } = new();
+        }
+
+
+        // ============================================================
+        // TODAY REGISTRATION
+        // ============================================================
+
+        public class TodayRegistrationCard
+        {
+            public int Total { get; set; }
+
+            public List<RegistrationProviderItem> ByProvider { get; set; } = new();
+        }
+
+
+        // ============================================================
+        // REGISTRATION PROVIDER
+        // ============================================================
+
+        public class RegistrationProviderItem
+        {
+            public string Provider { get; set; } = string.Empty;
+
+            public int Count { get; set; }
+        }
+
+
+        // ============================================================
+        // TODAY REVENUE
+        // ============================================================
+
+        public class TodayRevenueCard
+        {
+            public decimal Total { get; set; }
+
+            public decimal WithoutGst { get; set; }
+
+            public List<CourseRevenueItem> ByCourse { get; set; } = new();
+        }
+
+
+        // ============================================================
+        // TOTAL REGISTRATION
+        // ============================================================
+
+        public class TotalRegistrationCard
+        {
+            public int Total { get; set; }
+
+            public List<RegistrationProviderItem> ByProvider { get; set; } = new();
+        }
+
+
+        // ============================================================
+        // TOTAL REVENUE
+        // ============================================================
+
+        public class TotalRevenueCard
+        {
+            public decimal Total { get; set; }
+
+            public decimal WithoutGst { get; set; }
+
+            public List<CourseRevenueItem> ByCourse { get; set; } = new();
+        }
+
+
+        // ============================================================
+        // COURSE REVENUE
+        // ============================================================
+
+        public class CourseRevenueItem
+        {
+            public int? CourseId { get; set; }
+
+            public string Course { get; set; } = string.Empty;
+
+            public decimal Revenue { get; set; }
+        }
         public class CourseCardsResponse
         {
             public string LeadingCourse { get; set; } = string.Empty;
