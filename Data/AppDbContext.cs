@@ -1,4 +1,5 @@
 ﻿using Ecoeex_Academy_Api.Model;
+using Ecoex_Academy_Api.Model;
 using Microsoft.EntityFrameworkCore;
 
 namespace Ecoeex_Academy_Api.Data
@@ -24,6 +25,7 @@ namespace Ecoeex_Academy_Api.Data
         public DbSet<Certificate> tb_Certificates { get; set; }
         public DbSet<RecordingAccess> tb_RecordingAccess { get; set; }
         public DbSet<AdminUser> tb_AdminUsers { get; set; }
+        public DbSet<tb_social_media_count> tb_social_media_count { get; set; }
 
         // Existing table
         public DbSet<tb_userdetail> tb_userdetail { get; set; }
@@ -49,6 +51,7 @@ namespace Ecoeex_Academy_Api.Data
             modelBuilder.Entity<Certificate>().ToTable("tb_Certificates");
             modelBuilder.Entity<RecordingAccess>().ToTable("tb_RecordingAccess");
             modelBuilder.Entity<AdminUser>().ToTable("tb_AdminUsers");
+            modelBuilder.Entity<tb_social_media_count>().ToTable("tb_social_media_count");
 
             // -----------------------------
             // Composite Keys

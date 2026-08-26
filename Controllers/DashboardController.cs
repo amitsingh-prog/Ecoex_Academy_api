@@ -1482,6 +1482,90 @@ namespace Ecoex_Academy_Api.Controllers
             });
         }
 
+
+        [HttpGet("social-cards")]
+        public async Task<ActionResult> GetSocialCards(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var socialMediaCounts = await _context.tb_social_media_count
+                    .AsNoTracking()
+                    .ToListAsync(cancellationToken);
+                return Ok(socialMediaCounts);
+            }
+            catch (OperationCanceledException)
+            {
+                return BadRequest(new { message = "Request was cancelled." });
+            }
+            catch (Exception)
+            {
+                return Problem(detail: "An unexpected error occurred while fetching social media counts.", statusCode: 500);
+            }
+        }
+        public class SocialMediaCountRequest
+        {
+            public string SocialMedia { get; set; } = string.Empty;
+            public int VisitingCount { get; set; }
+        }
+        [HttpPost("insert-social-cards")]
+        public async Task<ActionResult> InsertData(SocialMediaCountRequest obj)
+        {
+            try
+            {
+                var socialMediaCount = new Model.tb_social_media_count
+                {
+                    SocialMedia = obj.SocialMedia,
+                    VisitingCount = obj.VisitingCount,
+                    lastUpdate = DateTime.Now,
+                    Status = "Active"
+                };
+                _context.tb_social_media_count.Add(socialMediaCount);
+                await _context.SaveChangesAsync();
+
+                return Ok(socialMediaCount);
+
+            }
+            catch (OperationCanceledException)
+            {
+                return BadRequest(new { message = "Request was cancelled." });
+            }
+            catch (Exception)
+            {
+                return Problem(detail: "An unexpected error occurred while fetching social media counts.", statusCode: 500);
+            }
+        }
+
+
+        [HttpPut("update-social-cards")]
+        public async Task<ActionResult> UpdateData(SocialMediaCountRequest obj)
+        {
+            try
+            {
+                var socialMediaCount = await _context.tb_social_media_count
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.SocialMedia == obj.SocialMedia);
+
+                if (socialMediaCount == null)
+                {
+                    return NotFound(new { message = "Social media count not found." });
+                }
+                socialMediaCount.VisitingCount = obj.VisitingCount;
+                socialMediaCount.lastUpdate = DateTime.Now;
+                socialMediaCount.Status = "Active";
+
+                await _context.SaveChangesAsync();
+                return Ok(socialMediaCount);
+            }
+            catch (OperationCanceledException)
+            {
+                return BadRequest(new { message = "Request was cancelled." });
+            }
+            catch (Exception)
+            {
+                return Problem(detail: "An unexpected error occurred while updating social media counts.", statusCode: 500);
+            }
+        }
+
         public class RegistrationRevenueCardsResponse
         {
             public TodayRegistrationCard TodayRegistration { get; set; } = new();
