@@ -1436,8 +1436,8 @@ namespace Ecoex_Academy_Api.Controllers
         public async Task<ActionResult> GetGraphData(CancellationToken cancellationtoken)
         {
 
-            DateTime today = DateTime.UtcNow;
-            DateTime lastsixthday = DateTime.UtcNow.AddDays(-6);
+            DateTime today = DateTime.Now;
+            DateTime lastsixthday = DateTime.Now.AddDays(-6);
             var graphData_revenue = await _context.tb_Orders
                 .AsNoTracking()
                 .Where(o =>
