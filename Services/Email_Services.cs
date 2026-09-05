@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using System;
 using System.Drawing;
 using System.Net;
 using System.Net.Mail;
@@ -1952,11 +1953,1204 @@ Empowering professionals with knowledge and skills.
         }
 
 
+        public async Task<Response> SendZoomLinkEmail(
+          int userId,
+          string zoomLink,
+          string courseName,
+          DateTime startDateTime,
+          DateTime? endDateTime)
+        {
+            try
+            {
+                var user = await _context.tb_Users
+                    .FirstOrDefaultAsync(x => x.UserId == userId);
+
+                if (user == null)
+                {
+                    return new Response
+                    {
+                        Success = false,
+                        Message = "User not found."
+                    };
+                }
+
+                if (string.IsNullOrWhiteSpace(user.Email))
+                {
+                    return new Response
+                    {
+                        Success = false,
+                        Message = "User email address is not available."
+                    };
+                }
+
+                if (string.IsNullOrWhiteSpace(zoomLink))
+                {
+                    return new Response
+                    {
+                        Success = false,
+                        Message = "Zoom link is not available."
+                    };
+                }
+
+                // ---------------------------------------------------------
+                // Format date and time
+                // ---------------------------------------------------------
+
+                string formattedDate =
+                    startDateTime.ToLocalTime().ToString("dddd, dd MMMM yyyy");
+
+                string formattedStartTime =
+                   startDateTime.ToString("hh:mm tt");
+
+                string formattedTime;
+
+                formattedTime = formattedStartTime;
+
+
+                // ---------------------------------------------------------
+                // SMTP Configuration
+                // ---------------------------------------------------------
+
+                using var smtp = new SmtpClient
+                {
+                    Host = "smtp-relay.brevo.com",
+                    Port = 587,
+                    EnableSsl = true,
+                    DeliveryMethod = SmtpDeliveryMethod.Network,
+                    UseDefaultCredentials = false,
+                    Credentials = new NetworkCredential(
+                        "info@ecoex.market",
+                        brevokey
+                    )
+                };
+
+                var fromAddress = new MailAddress(
+                    "info@ecoex.market",
+                    "Ecoex Academy"
+                );
+
+                var toAddress = new MailAddress(
+                    user.Email,
+                    user.Name
+                );
+
+                // ---------------------------------------------------------
+                // Email HTML
+                // ---------------------------------------------------------
+
+                var htmlBody = $@"
+
+<!DOCTYPE html>
+<html lang='en'>
+
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+
+    <title>Ecoex Academy - Session Details</title>
+</head>
+
+<body style='
+    margin:0;
+    padding:0;
+    background-color:#f3f5f7;
+    font-family:Arial, Helvetica, sans-serif;
+    color:#202124;
+'>
+
+<!-- Outer Wrapper -->
+<table width='100%'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       role='presentation'
+       style='
+           width:100%;
+           background-color:#f3f5f7;
+           padding:40px 15px;
+       '>
+
+    <tr>
+        <td align='center'>
+
+            <!-- Main Email Container -->
+            <table width='620'
+                   cellpadding='0'
+                   cellspacing='0'
+                   border='0'
+                   role='presentation'
+                   style='
+                       width:100%;
+                       max-width:620px;
+                       background-color:#ffffff;
+                       border-radius:12px;
+                       overflow:hidden;
+                       box-shadow:0 3px 12px rgba(0,0,0,0.08);
+                   '>
+
+
+                <!-- ================================================= -->
+                <!-- HEADER -->
+                <!-- ================================================= -->
+
+                <tr>
+                    <td style='
+                        padding:28px 40px;
+                        background-color:#ffffff;
+                        border-bottom:1px solid #e8eaed;
+                    '>
+
+                        <table width='100%'
+                               cellpadding='0'
+                               cellspacing='0'
+                               border='0'
+                               role='presentation'>
+
+                            <tr>
+
+                                <td align='left'>
+
+                                    <div style='
+                                        font-size:27px;
+                                        font-weight:700;
+                                        letter-spacing:1px;
+                                        color:#176b3a;
+                                    '>
+                                        ECOEX ACADEMY
+                                    </div>
+ 
+
+                                </td>
+
+                                <td align='right'
+                                    valign='middle'>
+
+                                 
+
+                                </td>
+
+                            </tr>
+
+                        </table>
+
+                    </td>
+                </tr>
+
+
+                <!-- ================================================= -->
+                <!-- HERO -->
+                <!-- ================================================= -->
+
+                <tr>
+                    <td style='
+                        padding:40px 40px 30px 40px;
+                        background-color:#f7fbf8;
+                    '>
+
+                        <div style='
+                            display:inline-block;
+                            padding:7px 12px;
+                            background-color:#e2f2e8;
+                            color:#176b3a;
+                            font-size:11px;
+                            font-weight:700;
+                            letter-spacing:0.8px;
+                            border-radius:20px;
+                        '>
+                            SESSION CONFIRMED
+                        </div>
+
+                        <h1 style='
+                            margin:18px 0 10px 0;
+                            font-size:28px;
+                            line-height:1.3;
+                            font-weight:700;
+                            color:#202124;
+                        '>
+                            Your Session Details
+                        </h1>
+
+                        <p style='
+                            margin:0;
+                            font-size:15px;
+                            line-height:1.7;
+                            color:#5f6368;
+                        '>
+                    Here are the details for your upcoming session. You can join the session using the Zoom link provided below.
+                        </p>
+
+                    </td>
+                </tr>
+
+
+                <!-- ================================================= -->
+                <!-- GREETING -->
+                <!-- ================================================= -->
+
+                <tr>
+                    <td style='
+                        padding:32px 40px 10px 40px;
+                    '>
+
+                        <p style='
+                            margin:0 0 12px 0;
+                            font-size:16px;
+                            line-height:1.6;
+                            color:#202124;
+                        '>
+                            Dear
+                            <strong>
+                                {System.Net.WebUtility.HtmlEncode(user.Name)}
+                            </strong>,
+                        </p>
+
+                        <p style='
+                            margin:0;
+                            font-size:15px;
+                            line-height:1.7;
+                            color:#5f6368;
+                        '>
+                            Thank you for registering with
+                            <strong style='color:#333333;'>
+                                Ecoex Academy
+                            </strong>.
+                            We are pleased to share the details of your
+                            upcoming online learning session.
+                        </p>
+
+                    </td>
+                </tr>
+
+
+                <!-- ================================================= -->
+                <!-- COURSE CARD -->
+                <!-- ================================================= -->
+
+                <tr>
+                    <td style='
+                        padding:25px 40px 10px 40px;
+                    '>
+
+                        <table width='100%'
+                               cellpadding='0'
+                               cellspacing='0'
+                               border='0'
+                               role='presentation'
+                               style='
+                                   border:1px solid #e1e6e3;
+                                   border-radius:10px;
+                                   background-color:#ffffff;
+                               '>
+
+                            <!-- Course -->
+                            <tr>
+
+                                <td style='
+                                    padding:22px 24px;
+                                    border-bottom:1px solid #edf0ee;
+                                '>
+
+                                    <div style='
+                                        font-size:11px;
+                                        font-weight:700;
+                                        letter-spacing:1px;
+                                        color:#7a817d;
+                                        text-transform:uppercase;
+                                    '>
+                                        COURSE
+                                    </div>
+
+                                    <div style='
+                                        margin-top:7px;
+                                        font-size:18px;
+                                        font-weight:700;
+                                        line-height:1.4;
+                                        color:#202124;
+                                    '>
+                                        {System.Net.WebUtility.HtmlEncode(courseName)}
+                                    </div>
+
+                                </td>
+
+                            </tr>
+
+
+                            <!-- Date -->
+                            <tr>
+
+                                <td style='
+                                    padding:20px 24px;
+                                    border-bottom:1px solid #edf0ee;
+                                '>
+
+                                    <table width='100%'
+                                           cellpadding='0'
+                                           cellspacing='0'
+                                           border='0'
+                                           role='presentation'>
+
+                                        <tr>
+
+                                            <td width='45'
+                                                valign='top'>
+
+                                                <div style='
+                                                    width:34px;
+                                                    height:34px;
+                                                    line-height:34px;
+                                                    text-align:center;
+                                                    background-color:#e8f4ec;
+                                                    border-radius:7px;
+                                                    font-size:16px;
+                                                '>
+                                                    📅
+                                                </div>
+
+                                            </td>
+
+                                            <td valign='middle'>
+
+                                                <div style='
+                                                    font-size:11px;
+                                                    font-weight:700;
+                                                    letter-spacing:0.8px;
+                                                    color:#7a817d;
+                                                '>
+                                                    DATE
+                                                </div>
+
+                                                <div style='
+                                                    margin-top:4px;
+                                                    font-size:15px;
+                                                    font-weight:600;
+                                                    color:#202124;
+                                                '>
+                                                    {formattedDate}
+                                                </div>
+
+                                            </td>
+
+                                        </tr>
+
+                                    </table>
+
+                                </td>
+
+                            </tr>
+
+
+                            <!-- Time -->
+                            <tr>
+
+                                <td style='
+                                    padding:20px 24px;
+                                '>
+
+                                    <table width='100%'
+                                           cellpadding='0'
+                                           cellspacing='0'
+                                           border='0'
+                                           role='presentation'>
+
+                                        <tr>
+
+                                            <td width='45'
+                                                valign='top'>
+
+                                                <div style='
+                                                    width:34px;
+                                                    height:34px;
+                                                    line-height:34px;
+                                                    text-align:center;
+                                                    background-color:#e8f4ec;
+                                                    border-radius:7px;
+                                                    font-size:16px;
+                                                '>
+                                                    🕐
+                                                </div>
+
+                                            </td>
+
+                                            <td valign='middle'>
+
+                                                <div style='
+                                                    font-size:11px;
+                                                    font-weight:700;
+                                                    letter-spacing:0.8px;
+                                                    color:#7a817d;
+                                                '>
+                                                    START TIME
+                                                </div>
+
+                                                <div style='
+                                                    margin-top:4px;
+                                                    font-size:15px;
+                                                    font-weight:600;
+                                                    color:#202124;
+                                                '>
+                                                    {formattedTime}
+                                                </div>
+
+                                            </td>
+
+                                        </tr>
+
+                                    </table>
+
+                                </td>
+
+                            </tr>
+
+                        </table>
+
+                    </td>
+                </tr>
+
+
+                <!-- ================================================= -->
+                <!-- ZOOM CTA -->
+                <!-- ================================================= -->
+
+                <tr>
+                    <td style='
+                        padding:30px 40px;
+                    '>
+
+                        <table width='100%'
+                               cellpadding='0'
+                               cellspacing='0'
+                               border='0'
+                               role='presentation'
+                               style='
+                                   background-color:#176b3a;
+                                   border-radius:10px;
+                               '>
+
+                            <tr>
+
+                                <td align='center'
+                                    style='padding:30px 25px;'>
+
+                                    <div style='
+                                        font-size:19px;
+                                        font-weight:700;
+                                        color:#ffffff;
+                                    '>
+                                        Ready to Join?
+                                    </div>
+
+                                    <p style='
+                                        margin:9px 0 22px 0;
+                                        font-size:14px;
+                                        line-height:1.6;
+                                        color:#dcefe3;
+                                    '>
+                                        Join the session using the secure
+                                        Zoom meeting link below.
+                                    </p>
+
+                                    <!-- Button -->
+
+                                    <table cellpadding='0'
+                                           cellspacing='0'
+                                           border='0'
+                                           role='presentation'>
+
+                                        <tr>
+
+                                            <td align='center'
+                                                style='
+                                                    background-color:#ffffff;
+                                                    border-radius:6px;
+                                                '>
+
+                                                <a href='{System.Net.WebUtility.HtmlEncode(zoomLink)}'
+                                                   style='
+                                                       display:inline-block;
+                                                       padding:14px 30px;
+                                                       color:#176b3a;
+                                                       text-decoration:none;
+                                                       font-size:15px;
+                                                       font-weight:700;
+                                                       letter-spacing:0.2px;
+                                                   '>
+                                                    JOIN SESSION
+                                                </a>
+
+                                            </td>
+
+                                        </tr>
+
+                                    </table>
+
+                                </td>
+
+                            </tr>
+
+                        </table>
+
+                    </td>
+                </tr>
+
+
+                <!-- ================================================= -->
+                <!-- JOINING INSTRUCTIONS -->
+                <!-- ================================================= -->
+
+                <tr>
+                    <td style='
+                        padding:0 40px 30px 40px;
+                    '>
+
+                        <table width='100%'
+                               cellpadding='0'
+                               cellspacing='0'
+                               border='0'
+                               role='presentation'
+                               style='
+                                   background-color:#f8f9fa;
+                                   border-radius:8px;
+                               '>
+
+                            <tr>
+
+                                <td style='
+                                    padding:22px 24px;
+                                '>
+
+                                    <div style='
+                                        font-size:14px;
+                                        font-weight:700;
+                                        color:#202124;
+                                        margin-bottom:12px;
+                                    '>
+                                        Before You Join
+                                    </div>
+
+                                    <div style='
+                                        font-size:13px;
+                                        line-height:1.8;
+                                        color:#5f6368;
+                                    '>
+
+                                        • Please join the session
+                                        <strong>5–10 minutes early</strong>.<br>
+
+                                        • Ensure you have a stable
+                                        internet connection.<br>
+
+                                        • Please use your registered name
+                                        when joining the session.<br>
+
+                                        • Keep your microphone muted unless
+                                        you are asked to speak.
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+
+                        </table>
+
+                    </td>
+                </tr>
+
+
+
+
+                <!-- ================================================= -->
+                <!-- CLOSING -->
+                <!-- ================================================= -->
+
+                <tr>
+                    <td style='
+                        padding:5px 40px 35px 40px;
+                    '>
+
+                        <p style='
+                            margin:0;
+                            font-size:14px;
+                            line-height:1.7;
+                            color:#5f6368;
+                        '>
+                            We look forward to having you with us.
+                        </p>
+
+                        <p style='
+                            margin:18px 0 0 0;
+                            font-size:14px;
+                            line-height:1.6;
+                            color:#202124;
+                        '>
+                            Best regards,<br>
+                            <strong>Ecoex Academy Team</strong>
+                        </p>
+
+                    </td>
+                </tr>
+
+
+                <!-- ================================================= -->
+                <!-- FOOTER -->
+                <!-- ================================================= -->
+
+                <tr>
+
+                    <td align='center'
+                        style='
+                            padding:28px 35px;
+                            background-color:#f5f6f5;
+                            border-top:1px solid #e6e8e6;
+                        '>
+
+                        <div style='
+                            font-size:14px;
+                            font-weight:700;
+                            color:#333333;
+                        '>
+                            ECOEX ACADEMY
+                        </div>
+
+                        <div style='
+                            margin-top:7px;
+                            font-size:12px;
+                            color:#777777;
+                            line-height:1.6;
+                        '>
+                            Sustainability • Circular Economy • ESG
+                        </div>
+
+                        <div style='
+                            margin-top:15px;
+                            font-size:11px;
+                            line-height:1.6;
+                            color:#999999;
+                        '>
+                            This is an automated communication from
+                            Ecoex Academy. Please do not reply to this email.
+                        </div>
+
+                        <div style='
+                            margin-top:10px;
+                            font-size:11px;
+                            color:#aaaaaa;
+                        '>
+                            © {DateTime.Now.Year} Ecoex Academy.
+                            All rights reserved.
+                        </div>
+
+                    </td>
+
+                </tr>
+
+            </table>
+
+        </td>
+    </tr>
+
+</table>
+</body>
+</html>";
+
+
+
+                // ---------------------------------------------------------
+                // Create Email
+                // ---------------------------------------------------------
+
+                using var message = new MailMessage(
+                    fromAddress,
+                    toAddress
+                );
+                message.Subject = "Ecoex Academy | Upcoming Session Details";
+
+                message.Body = htmlBody;
+
+                message.IsBodyHtml = true;
+
+                // Important email headers
+                message.Headers.Add(
+                    "X-Mailer",
+                    "Ecoex Academy"
+                );
+
+                message.Headers.Add(
+                    "X-Auto-Response-Suppress",
+                    "All"
+                );
+
+
+                // ---------------------------------------------------------
+                // Send Email
+                // ---------------------------------------------------------
+
+                await smtp.SendMailAsync(message);
+
+
+                return new Response
+                {
+                    Success = true,
+                    Message = "Zoom link email sent successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                return new Response
+                {
+                    Success = false,
+                    Message = ex.Message
+                };
+            }
+        }
+
+
+
+        public async Task<Response> SendCertificateEmail(int userId, string certificateId, string courseName, string? certificateFilePath)
+        {
+            try
+            {
+                // -----------------------------------------
+                // Get User
+                // -----------------------------------------
+
+                var user = await _context.tb_Users
+                    .FirstOrDefaultAsync(x => x.UserId == userId);
+
+                if (user == null)
+                {
+                    return new Response
+                    {
+                        Success = false,
+                        Message = "User not found."
+                    };
+                }
+
+                if (string.IsNullOrWhiteSpace(user.Email))
+                {
+                    return new Response
+                    {
+                        Success = false,
+                        Message = "User email address is missing."
+                    };
+                }
+
+
+                // -----------------------------------------
+                // SMTP Configuration
+                // -----------------------------------------
+
+                var smtp = new SmtpClient
+                {
+                    Host = "smtp-relay.brevo.com",
+                    Port = 587,
+                    EnableSsl = true,
+                    DeliveryMethod = SmtpDeliveryMethod.Network,
+                    UseDefaultCredentials = false,
+                    Credentials = new NetworkCredential(
+                        "info@ecoex.market",
+                        brevokey
+                    )
+                };
+
+
+                // -----------------------------------------
+                // Email Addresses
+                // -----------------------------------------
+
+                var fromAddress = new MailAddress(
+                    "info@ecoex.market",
+                    "Ecoex Academy"
+                );
+
+                var toAddress = new MailAddress(
+                    user.Email,
+                    user.Name
+                );
+
+
+                // -----------------------------------------
+                // Certificate Link
+                // -----------------------------------------
+
+                string certificateSection = string.Empty;
+
+                if (!string.IsNullOrWhiteSpace(certificateFilePath))
+                {
+                    certificateSection = $@"
+                <div style='
+                    margin:30px 0;
+                    text-align:center;
+                '>
+
+                    <a href='{certificateFilePath}'
+                       style='
+                           display:inline-block;
+                           padding:13px 28px;
+                           background:#1a73e8;
+                           color:#ffffff;
+                           text-decoration:none;
+                           border-radius:6px;
+                           font-size:14px;
+                           font-weight:600;
+                       '>
+                        View Certificate
+                    </a>
+
+                </div>";
+                }
+
+
+                // -----------------------------------------
+                // Email Body
+                // -----------------------------------------
+
+                string htmlBody = $@"
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+    <meta charset='UTF-8' />
+
+    <meta name='viewport'
+          content='width=device-width, initial-scale=1.0' />
+
+</head>
+
+<body style='
+    margin:0;
+    padding:0;
+    background:#f4f6f8;
+    font-family:Arial,Helvetica,sans-serif;
+'>
+
+<table width='100%'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       style='background:#f4f6f8;padding:30px 10px;'>
+
+<tr>
+
+<td align='center'>
+
+<table width='600'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       style='
+           max-width:600px;
+           width:100%;
+           background:#ffffff;
+           border-radius:10px;
+           overflow:hidden;
+       '>
+
+
+<!-- HEADER -->
+
+<tr>
+
+<td style='
+    background:#111827;
+    padding:24px 30px;
+    text-align:center;
+'>
+
+    <div style='
+        color:#ffffff;
+        font-size:24px;
+        font-weight:700;
+    '>
+        Ecoex Academy
+    </div>
+
+    <div style='
+        color:#d1d5db;
+        font-size:13px;
+        margin-top:5px;
+    '>
+        Learning • Knowledge • Growth
+    </div>
+
+</td>
+
+</tr>
+
+
+<!-- CONTENT -->
+
+<tr>
+
+<td style='padding:35px 35px 20px 35px;'>
+
+    <p style='
+        margin:0 0 18px 0;
+        font-size:16px;
+        color:#111827;
+    '>
+        Dear <strong>{user.Name}</strong>,
+    </p>
+
+
+    <p style='
+        margin:0 0 18px 0;
+        font-size:15px;
+        line-height:1.7;
+        color:#4b5563;
+    '>
+
+        Congratulations on successfully completing the
+        <strong>{courseName}</strong> session with
+        <strong>Ecoex Academy</strong>.
+
+    </p>
+
+
+    <p style='
+        margin:0 0 25px 0;
+        font-size:15px;
+        line-height:1.7;
+        color:#4b5563;
+    '>
+
+        Your certificate has been issued and is now available
+        for your records.
+
+    </p>
+
+
+    <!-- CERTIFICATE DETAILS -->
+
+    <table width='100%'
+           cellpadding='0'
+           cellspacing='0'
+           border='0'
+           style='
+               background:#f8fafc;
+               border:1px solid #e5e7eb;
+               border-radius:8px;
+           '>
+
+        <tr>
+
+            <td style='padding:18px 20px;'>
+
+                <div style='
+                    font-size:12px;
+                    color:#6b7280;
+                    margin-bottom:5px;
+                '>
+                    COURSE
+                </div>
+
+                <div style='
+                    font-size:15px;
+                    color:#111827;
+                    font-weight:600;
+                '>
+                    {courseName}
+                </div>
+
+            </td>
+
+        </tr>
+
+
+        <tr>
+
+            <td style='
+                padding:0 20px 18px 20px;
+            '>
+
+                <div style='
+                    font-size:12px;
+                    color:#6b7280;
+                    margin-bottom:5px;
+                '>
+                    CERTIFICATE ID
+                </div>
+
+                <div style='
+                    font-size:14px;
+                    color:#111827;
+                    font-weight:600;
+                '>
+                    {certificateId}
+                </div>
+
+            </td>
+
+        </tr>
+
+
+        <tr>
+
+            <td style='
+                padding:0 20px 18px 20px;
+            '>
+
+                <div style='
+                    font-size:12px;
+                    color:#6b7280;
+                    margin-bottom:5px;
+                '>
+                    ISSUE DATE
+                </div>
+
+                <div style='
+                    font-size:14px;
+                    color:#111827;
+                    font-weight:600;
+                '>
+                    {DateTime.UtcNow:dd MMMM yyyy}
+                </div>
+
+            </td>
+
+        </tr>
+
+    </table>
+
+
+    {certificateSection}
+
+
+    <p style='
+        margin:20px 0 0 0;
+        font-size:14px;
+        line-height:1.7;
+        color:#6b7280;
+    '>
+
+        Please retain this certificate for your future reference.
+        The Certificate ID can be used to verify the authenticity
+        of your certificate.
+
+    </p>
+
+
+    <p style='
+        margin:25px 0 0 0;
+        font-size:15px;
+        color:#374151;
+    '>
+
+        Best regards,<br />
+
+        <strong>Ecoex Academy</strong><br />
+
+        Ecoex Market
+
+    </p>
+
+</td>
+
+</tr>
+
+
+<!-- FOOTER -->
+
+<tr>
+
+<td style='
+    background:#f8fafc;
+    border-top:1px solid #e5e7eb;
+    padding:22px 30px;
+    text-align:center;
+'>
+
+    <p style='
+        margin:0;
+        font-size:12px;
+        color:#9ca3af;
+        line-height:1.6;
+    '>
+
+        This is an automated email from Ecoex Academy.
+        Please do not reply directly to this email.
+
+    </p>
+
+    <p style='
+        margin:8px 0 0 0;
+        font-size:12px;
+        color:#9ca3af;
+    '>
+
+        © {DateTime.UtcNow.Year} Ecoex Academy. All rights reserved.
+
+    </p>
+
+</td>
+
+</tr>
+
+
+</table>
+
+</td>
+
+</tr>
+
+</table>
+
+</body>
+
+</html>
+";
+
+
+                // -----------------------------------------
+                // Create Email
+                // -----------------------------------------
+
+                using var message = new MailMessage(
+                    fromAddress,
+                    toAddress
+                );
+
+                message.Subject =
+                    "Certificate of Completion | Ecoex Academy";
+
+                message.Body = htmlBody;
+
+                message.IsBodyHtml = true;
+
+
+                // -----------------------------------------
+                // Send Email
+                // -----------------------------------------
+
+                await smtp.SendMailAsync(message);
+
+
+                // -----------------------------------------
+                // Success
+                // -----------------------------------------
+
+                return new Response
+                {
+                    Success = true,
+                    Message = "Certificate email sent successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                return new Response
+                {
+                    Success = false,
+                    Message = ex.Message
+                };
+            }
+        }
+
+
 
 
     }
-
-
-
 
 }

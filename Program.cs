@@ -1,5 +1,6 @@
 using Ecoeex_Academy_Api.Data;
 using Ecoeex_Academy_Api.Services;
+using Ecoex_Academy_Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
@@ -35,7 +36,12 @@ builder.Services.AddScoped<
     Email_Services
 >();
 
+builder.Services.AddScoped<
+    ICertificateServices,
+    CertificateServices
+>();
 
+builder.Services.AddHostedService<CertificateBackgroundService>();
 
 // ============================================================
 // HTTP CLIENT

@@ -21,7 +21,7 @@ namespace Ecoeex_Academy_Api.Model
         public ICollection<Order> Orders { get; set; } = new List<Order>();
         public ICollection<Enrollment> Enrollments { get; set; } = new List<Enrollment>();
         public ICollection<ZoomAccess> ZoomAccesses { get; set; } = new List<ZoomAccess>();
-        public ICollection<Certificate> Certificates { get; set; } = new List<Certificate>();
+        //public ICollection<Certificate> Certificates { get; set; } = new List<Certificate>();
         public ICollection<RecordingAccess> RecordingAccesses { get; set; } = new List<RecordingAccess>();
 
 

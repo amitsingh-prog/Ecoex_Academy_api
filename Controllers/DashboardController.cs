@@ -15,6 +15,7 @@ namespace Ecoex_Academy_Api.Controllers
     [Route("api/[controller]")]
     public class DashboardController : ControllerBase
     {
+
         private readonly AppDbContext _context;
 
         public DashboardController(AppDbContext context)
@@ -22,31 +23,21 @@ namespace Ecoex_Academy_Api.Controllers
             _context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
-
         private const string OrderPaid = "paid";
         private const string OrderPending = "pending";
-
         private const string PaymentApproved = "approved";
         private const string PaymentPendingVerification = "pending verification";
 
         [HttpGet("registration-revenue/cards")]
-        public async Task<ActionResult<RegistrationRevenueCardsResponse>> GetRegistrationRevenueCards(
-          CancellationToken cancellationToken = default)
+        public async Task<ActionResult<RegistrationRevenueCardsResponse>> GetRegistrationRevenueCards(CancellationToken cancellationToken = default)
         {
             try
             {
-                // ============================================================
-                // DATE RANGE FOR TODAY
-                // ============================================================
-
                 var today = DateTime.Today;
                 var tomorrow = today.AddDays(1);
-
-
                 // ============================================================
                 // TODAY - PAID + APPROVED ORDERS
-                // ============================================================
-
+                // ============================================================ 
                 var todayOrders = _context.tb_Orders
                     .AsNoTracking()
                     .Where(o =>
@@ -1007,7 +998,6 @@ namespace Ecoex_Academy_Api.Controllers
                     .Select(u => u.UserId)
                     .ToListAsync(cancellationToken);
 
-
                 var spaPaidOrders = await _context.tb_Orders
                     .AsNoTracking()
                     .Where(o =>
@@ -1018,7 +1008,6 @@ namespace Ecoex_Academy_Api.Controllers
                         o.Payment.Status != null &&
                         o.Payment.Status.ToLower() == PaymentApproved)
                     .ToListAsync(cancellationToken);
-
 
                 var spaTotal = spaUserIds.Count;
 

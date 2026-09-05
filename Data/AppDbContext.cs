@@ -1,5 +1,6 @@
 ﻿using Ecoeex_Academy_Api.Model;
 using Ecoex_Academy_Api.Model;
+using Ecoex_Academy_Api.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace Ecoeex_Academy_Api.Data
@@ -22,10 +23,12 @@ namespace Ecoeex_Academy_Api.Data
         public DbSet<Payment> tb_Payments { get; set; }
         public DbSet<Enrollment> tb_Enrollments { get; set; }
         public DbSet<ZoomAccess> tb_ZoomAccess { get; set; }
-        public DbSet<Certificate> tb_Certificates { get; set; }
+
         public DbSet<RecordingAccess> tb_RecordingAccess { get; set; }
         public DbSet<AdminUser> tb_AdminUsers { get; set; }
         public DbSet<tb_social_media_count> tb_social_media_count { get; set; }
+        public DbSet<SessionParticipant> tb_SessionParticipant { get; set; }
+        public DbSet<Certificate> tb_Certificate { get; set; }
 
         // Existing table
         public DbSet<tb_userdetail> tb_userdetail { get; set; }
@@ -48,10 +51,12 @@ namespace Ecoeex_Academy_Api.Data
             modelBuilder.Entity<Payment>().ToTable("tb_Payments");
             modelBuilder.Entity<Enrollment>().ToTable("tb_Enrollments");
             modelBuilder.Entity<ZoomAccess>().ToTable("tb_ZoomAccess");
-            modelBuilder.Entity<Certificate>().ToTable("tb_Certificates");
+
             modelBuilder.Entity<RecordingAccess>().ToTable("tb_RecordingAccess");
             modelBuilder.Entity<AdminUser>().ToTable("tb_AdminUsers");
             modelBuilder.Entity<tb_social_media_count>().ToTable("tb_social_media_count");
+            modelBuilder.Entity<Certificate>().ToTable("tb_Certificates");
+            modelBuilder.Entity<SessionParticipant>().ToTable("tb_SessionParticipants");
 
             // -----------------------------
             // Composite Keys
@@ -82,9 +87,6 @@ namespace Ecoeex_Academy_Api.Data
                 .HasOne(x => x.Group)
                 .WithMany(x => x.Members)
                 .HasForeignKey(x => x.GroupId);
-
-
-
 
             modelBuilder.Entity<Order>()
                 .HasOne(x => x.PayerUser)
@@ -131,20 +133,7 @@ namespace Ecoeex_Academy_Api.Data
                 .WithMany(x => x.ZoomAccesses)
                 .HasForeignKey(x => x.UserId);
 
-            modelBuilder.Entity<Certificate>()
-                .HasOne(x => x.Enrollment)
-                .WithMany(x => x.Certificates)
-                .HasForeignKey(x => x.EnrollmentId);
 
-            modelBuilder.Entity<Certificate>()
-                .HasOne(x => x.User)
-                .WithMany(x => x.Certificates)
-                .HasForeignKey(x => x.UserId);
-
-            modelBuilder.Entity<Certificate>()
-                .HasOne(x => x.Course)
-                .WithMany(x => x.Certificates)
-                .HasForeignKey(x => x.CourseID);
 
             modelBuilder.Entity<RecordingAccess>()
                 .HasOne(x => x.Enrollment)
@@ -160,6 +149,14 @@ namespace Ecoeex_Academy_Api.Data
                 .HasOne(x => x.Course)
                 .WithMany(x => x.RecordingAccesses)
                 .HasForeignKey(x => x.CourseID);
+
+            modelBuilder.Entity<Certificate>()
+    .Property(x => x.CertificateEmailStatus)
+    .HasConversion<string>();
+
+            modelBuilder.Entity<SessionParticipant>()
+                .Property(x => x.ZoomEmailStatus)
+                .HasConversion<string>();
         }
     }
 }
