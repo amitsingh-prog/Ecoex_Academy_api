@@ -7,21 +7,31 @@ on:
 
   workflow_dispatch:
 
+
 jobs:
 
   # ==================================================
-  # DEPLOY JOB
-  # Build → Publish → Deploy → Restart
+  # JOB 1
+  # BUILD → PUBLISH → UPLOAD ARTIFACT
   # ==================================================
 
-  deploy:
+  build:
+
+    name: Build & Publish
 
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      actions: write
+
+    outputs:
+      artifact_id: ${{ steps.upload_artifact.outputs.artifact-id }}
 
     steps:
 
       # ==================================================
-      # 1. CHECKOUT REPOSITORY
+      # 1. CHECKOUT
       # ==================================================
 
       - name: Checkout Repository
@@ -39,7 +49,7 @@ jobs:
 
 
       # ==================================================
-      # 3. VERIFY .NET VERSION
+      # 3. VERIFY .NET
       # ==================================================
 
       - name: Check .NET Version
@@ -53,7 +63,7 @@ jobs:
 
 
       # ==================================================
-      # 4. RESTORE NUGET PACKAGES
+      # 4. RESTORE
       # ==================================================
 
       - name: Restore NuGet Packages
@@ -62,7 +72,7 @@ jobs:
 
 
       # ==================================================
-      # 5. BUILD APPLICATION
+      # 5. BUILD
       # ==================================================
 
       - name: Build Application
@@ -73,7 +83,7 @@ jobs:
 
 
       # ==================================================
-      # 6. PUBLISH APPLICATION
+      # 6. PUBLISH
       # ==================================================
 
       - name: Publish Application
@@ -85,7 +95,7 @@ jobs:
 
 
       # ==================================================
-      # 7. VERIFY PUBLISH OUTPUT
+      # 7. VERIFY PUBLISH
       # ==================================================
 
       - name: Verify Publish Output
@@ -99,14 +109,67 @@ jobs:
 
 
       # ==================================================
-      # 8. DEPLOY TO VPS
+      # 8. UPLOAD ARTIFACT
       #
-      # Retry up to 3 times if SCP fails
+      # This artifact will be used by Job 2.
       # ==================================================
 
-      - name: Copy Files To Server
-        uses: nick-invision/assert-action@v2
-        if: ${{ false }}
+      - name: Upload Publish Artifact
+        id: upload_artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ecoex-academy-api-${{ github.run_id }}
+          path: ./publish
+          if-no-files-found: error
+          retention-days: 1
+
+
+  # ==================================================
+  # JOB 2
+  # DOWNLOAD ARTIFACT → DEPLOY TO VPS
+  # ==================================================
+
+  deploy:
+
+    name: Deploy To VPS
+
+    needs: build
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+
+      # ==================================================
+      # 1. DOWNLOAD ARTIFACT
+      # ==================================================
+
+      - name: Download Publish Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ecoex-academy-api-${{ github.run_id }}
+          path: ./publish
+
+
+      # ==================================================
+      # 2. VERIFY DOWNLOADED FILES
+      # ==================================================
+
+      - name: Verify Downloaded Files
+        run: |
+          echo "Files downloaded from artifact:"
+          find ./publish -type f
+
+          echo ""
+          echo "Publish directory size:"
+          du -sh ./publish
+
+
+      # ==================================================
+      # 3. DEPLOY ATTEMPT 1
+      # ==================================================
 
       - name: Deploy To VPS - Attempt 1
         id: deploy1
@@ -116,73 +179,113 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
+
           source: "./publish/*"
+
           target: "/root/Ecoex/Projects/Ecoex_Academy_AdminPanel/Api/Publish"
+
           overwrite: true
           strip_components: 1
 
+
+      # ==================================================
+      # 4. DEPLOY ATTEMPT 2
+      # ==================================================
+
       - name: Deploy To VPS - Attempt 2
-        if: steps.deploy1.outcome == 'failure'
         id: deploy2
+        if: steps.deploy1.outcome == 'failure'
         continue-on-error: true
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
+
           source: "./publish/*"
+
           target: "/root/Ecoex/Projects/Ecoex_Academy_AdminPanel/Api/Publish"
+
           overwrite: true
           strip_components: 1
 
+
+      # ==================================================
+      # 5. DEPLOY ATTEMPT 3
+      # ==================================================
+
       - name: Deploy To VPS - Attempt 3
-        if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
         id: deploy3
+        if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        continue-on-error: true
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
+
           source: "./publish/*"
+
           target: "/root/Ecoex/Projects/Ecoex_Academy_AdminPanel/Api/Publish"
+
           overwrite: true
           strip_components: 1
 
 
       # ==================================================
-      # 9. VERIFY DEPLOYMENT
+      # 6. VERIFY DEPLOYMENT
       # ==================================================
 
       - name: Verify Deployment
-        if: always()
         run: |
+
           if [ "${{ steps.deploy1.outcome }}" = "success" ] || \
              [ "${{ steps.deploy2.outcome }}" = "success" ] || \
              [ "${{ steps.deploy3.outcome }}" = "success" ]; then
 
+            echo "=========================================="
             echo "Deployment to VPS succeeded."
+            echo "=========================================="
 
           else
 
+            echo "=========================================="
             echo "Deployment failed after 3 attempts."
+            echo "=========================================="
+
             exit 1
 
           fi
 
 
+  # ==================================================
+  # JOB 3
+  # RESTART SERVICE
+  # ==================================================
+
+  restart:
+
+    name: Restart API Service
+
+    needs: deploy
+
+    runs-on: ubuntu-latest
+
+    steps:
+
       # ==================================================
-      # 10. RESTART SERVICE - ATTEMPT 1
+      # RESTART ATTEMPT 1
       # ==================================================
 
       - name: Restart Service - Attempt 1
         id: restart1
-        if: success()
         continue-on-error: true
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
+
           script: |
 
             echo "Restarting Ecoex Academy API..."
@@ -197,7 +300,7 @@ jobs:
 
 
       # ==================================================
-      # 11. RESTART SERVICE - ATTEMPT 2
+      # RESTART ATTEMPT 2
       # ==================================================
 
       - name: Restart Service - Attempt 2
@@ -209,6 +312,7 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
+
           script: |
 
             echo "Restart attempt 2..."
@@ -223,17 +327,19 @@ jobs:
 
 
       # ==================================================
-      # 12. RESTART SERVICE - ATTEMPT 3
+      # RESTART ATTEMPT 3
       # ==================================================
 
       - name: Restart Service - Attempt 3
         id: restart3
         if: steps.restart1.outcome == 'failure' && steps.restart2.outcome == 'failure'
+        continue-on-error: true
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
+
           script: |
 
             echo "Restart attempt 3..."
@@ -250,10 +356,10 @@ jobs:
 
 
       # ==================================================
-      # 13. FINAL STATUS
+      # VERIFY RESTART
       # ==================================================
 
-      - name: Deployment Completed
+      - name: Verify Service Restart
         run: |
 
           if [ "${{ steps.restart1.outcome }}" = "success" ] || \
@@ -261,15 +367,139 @@ jobs:
              [ "${{ steps.restart3.outcome }}" = "success" ]; then
 
             echo "=========================================="
-            echo "Deployment completed successfully"
+            echo "Service restart successful."
             echo "=========================================="
 
           else
 
             echo "=========================================="
-            echo "Deployment failed after 3 attempts"
+            echo "Service restart failed after 3 attempts."
             echo "=========================================="
 
             exit 1
 
           fi
+
+
+  # ==================================================
+  # JOB 4
+  # FINAL VERIFICATION
+  # ==================================================
+
+  verify:
+
+    name: Final Deployment Verification
+
+    needs:
+      - deploy
+      - restart
+
+    runs-on: ubuntu-latest
+
+    if: always()
+
+    steps:
+
+      # ==================================================
+      # CHECK ALL PREVIOUS JOBS
+      # ==================================================
+
+      - name: Check Deployment Status
+        run: |
+
+          echo "=========================================="
+          echo "FINAL DEPLOYMENT STATUS"
+          echo "=========================================="
+
+          echo "Build job    : ${{ needs.build.result }}"
+          echo "Deploy job   : ${{ needs.deploy.result }}"
+          echo "Restart job  : ${{ needs.restart.result }}"
+
+          echo "=========================================="
+
+
+          if [ "${{ needs.deploy.result }}" != "success" ]; then
+
+            echo "Deployment failed."
+            exit 1
+
+          fi
+
+
+          if [ "${{ needs.restart.result }}" != "success" ]; then
+
+            echo "Service restart failed."
+            exit 1
+
+          fi
+
+
+          echo "=========================================="
+          echo "DEPLOYMENT COMPLETED SUCCESSFULLY"
+          echo "=========================================="
+
+
+  # ==================================================
+  # JOB 5
+  # CLEANUP ARTIFACT
+  #
+  # IMPORTANT:
+  # always() means this job runs even when
+  # Build / Deploy / Restart / Verify fails.
+  # ==================================================
+
+  cleanup:
+
+    name: Cleanup Artifact
+
+    needs:
+      - build
+      - deploy
+      - restart
+      - verify
+
+    runs-on: ubuntu-latest
+
+    if: always()
+
+    permissions:
+      actions: write
+
+    steps:
+
+      # ==================================================
+      # DELETE ARTIFACT
+      # ==================================================
+
+      - name: Delete Current Run Artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ needs.build.outputs.artifact_id }}
+
+        run: |
+
+          echo "=========================================="
+          echo "CLEANING UP ARTIFACT"
+          echo "=========================================="
+
+
+          if [ -n "$ARTIFACT_ID" ]; then
+
+            echo "Artifact ID: $ARTIFACT_ID"
+
+            gh api \
+              --method DELETE \
+              "/repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID"
+
+            echo "Artifact deleted successfully."
+
+          else
+
+            echo "No artifact found to delete."
+
+          fi
+
+
+          echo "=========================================="
+          echo "CLEANUP COMPLETED"
+          echo "=========================================="
