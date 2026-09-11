@@ -1953,6 +1953,719 @@ Empowering professionals with knowledge and skills.
         }
 
 
+
+        public async Task<Response> SendCourse2ZoomEmail(
+            int userId,
+            string zoomLink,
+            string courseName,
+            DateTime startDateTime,
+            DateTime? endDateTime)
+        {
+            const string meetingChatLink = "https://us06web.zoom.us/launch/jc/88686082021";
+
+            const string meetingId = "886 8608 2021";
+            const string passcode = "424631";
+
+            try
+            {
+                var user = await _context.tb_Users
+                 .FirstOrDefaultAsync(x => x.UserId == userId);
+
+                string formattedDate = startDateTime.ToString("dddd, dd MMMM yyyy");
+
+                string formattedStartTime = startDateTime.ToString("hh:mm tt");
+
+                string formattedTime = formattedStartTime;
+
+                using var smtp = new SmtpClient
+                {
+                    Host = "smtp-relay.brevo.com",
+                    Port = 587,
+                    EnableSsl = true,
+                    DeliveryMethod = SmtpDeliveryMethod.Network,
+                    UseDefaultCredentials = false,
+                    Credentials = new NetworkCredential(
+                        "info@ecoex.market",
+                        brevokey
+                    )
+                };
+
+                var fromAddress = new MailAddress(
+                    "info@ecoex.market",
+                    "Ecoex Academy"
+                );
+
+                var toAddress = new MailAddress(
+                    user.Email,
+                    user.Name
+                );
+
+                var htmlBody = $@"
+<!DOCTYPE html>
+<html lang='en'>
+
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Ecoex Academy - ESG & BRSR</title>
+</head>
+
+<body style='
+    margin:0;
+    padding:0;
+    background-color:#f3f5f7;
+    font-family:Arial, Helvetica, sans-serif;
+    color:#202124;
+'>
+
+<table width='100%'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       role='presentation'
+       style='
+           width:100%;
+           background-color:#f3f5f7;
+           padding:40px 15px;
+       '>
+
+<tr>
+<td align='center'>
+
+<table width='620'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       role='presentation'
+       style='
+           width:100%;
+           max-width:620px;
+           background-color:#ffffff;
+           border-radius:12px;
+           overflow:hidden;
+           box-shadow:0 3px 12px rgba(0,0,0,0.08);
+       '>
+
+<!-- HEADER -->
+
+<tr>
+<td style='
+    padding:28px 40px;
+    background-color:#ffffff;
+    border-bottom:1px solid #e8eaed;
+'>
+
+<div style='
+    font-size:27px;
+    font-weight:700;
+    letter-spacing:1px;
+    color:#176b3a;
+'>
+    ECOEX ACADEMY
+</div>
+
+</td>
+</tr>
+
+
+<!-- HERO -->
+
+<tr>
+<td style='
+    padding:40px 40px 30px 40px;
+    background-color:#f7fbf8;
+'>
+
+<div style='
+    display:inline-block;
+    padding:7px 12px;
+    background-color:#e2f2e8;
+    color:#176b3a;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0.8px;
+    border-radius:20px;
+'>
+    SESSION CONFIRMED
+</div>
+
+<h1 style='
+    margin:18px 0 10px 0;
+    font-size:28px;
+    line-height:1.3;
+    font-weight:700;
+    color:#202124;
+'>
+    ESG &amp; BRSR Session Details
+</h1>
+
+<p style='
+    margin:0;
+    font-size:15px;
+    line-height:1.7;
+    color:#5f6368;
+'>
+    Your upcoming Ecoex Academy session is confirmed.
+    Please find the session details below.
+</p>
+
+</td>
+</tr>
+
+
+<!-- GREETING -->
+
+<tr>
+<td style='
+    padding:32px 40px 10px 40px;
+'>
+
+<p style='
+    margin:0 0 12px 0;
+    font-size:16px;
+    line-height:1.6;
+    color:#202124;
+'>
+    Dear
+    <strong>
+        {System.Net.WebUtility.HtmlEncode(user.Name)}
+    </strong>,
+</p>
+
+<p style='
+    margin:0;
+    font-size:15px;
+    line-height:1.7;
+    color:#5f6368;
+'>
+    Thank you for registering for the
+    <strong style='color:#333333;'>
+      Certification Course on ESG & BRSR for Businesses,
+    </strong>.
+  presented in collaboration with the
+    <strong> School of Planning and Architecture, New Delhi   </strong> We're pleased to share the joining details for the live virtual sessions below.
+</p>
+
+</td>
+</tr>
+
+
+<!-- COURSE DETAILS -->
+
+<tr>
+<td style='
+    padding:25px 40px 10px 40px;
+'>
+
+<table width='100%'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       role='presentation'
+       style='
+           border:1px solid #e1e6e3;
+           border-radius:10px;
+           background-color:#ffffff;
+       '>
+
+<!-- COURSE -->
+
+<tr>
+<td style='
+    padding:22px 24px;
+    border-bottom:1px solid #edf0ee;
+'>
+
+<div style='
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:1px;
+    color:#7a817d;
+    text-transform:uppercase;
+'>
+    COURSE
+</div>
+
+<div style='
+    margin-top:7px;
+    font-size:18px;
+    font-weight:700;
+    line-height:1.4;
+    color:#202124;
+'>
+    {System.Net.WebUtility.HtmlEncode(courseName)}
+</div>
+
+</td>
+</tr>
+
+
+<!-- DATE -->
+
+<tr>
+<td style='
+    padding:20px 24px;
+    border-bottom:1px solid #edf0ee;
+'>
+
+<table width='100%'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       role='presentation'>
+
+<tr>
+
+<td width='45' valign='top'>
+
+<div style='
+    width:34px;
+    height:34px;
+    line-height:34px;
+    text-align:center;
+    background-color:#e8f4ec;
+    border-radius:7px;
+    font-size:16px;
+'>
+    📅
+</div>
+
+</td>
+
+<td valign='middle'>
+
+<div style='
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0.8px;
+    color:#7a817d;
+'>
+    DATE
+</div>
+
+<div style='
+    margin-top:4px;
+    font-size:15px;
+    font-weight:600;
+    color:#202124;
+'>
+12–13 September 2026
+
+</div>
+
+</td>
+
+</tr>
+
+</table>
+
+</td>
+</tr>
+
+
+<!-- TIME -->
+
+<tr>
+<td style='
+    padding:20px 24px;
+'>
+
+<table width='100%'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       role='presentation'>
+
+<tr>
+
+<td width='45' valign='top'>
+
+<div style='
+    width:34px;
+    height:34px;
+    line-height:34px;
+    text-align:center;
+    background-color:#e8f4ec;
+    border-radius:7px;
+    font-size:16px;
+'>
+    🕐
+</div>
+
+</td>
+
+<td valign='middle'>
+
+<div style='
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0.8px;
+    color:#7a817d;
+'>
+    START TIME
+</div>
+
+<div style='
+    margin-top:4px;
+    font-size:15px;
+    font-weight:600;
+    color:#202124;
+'>
+    11:00 AM – 1:00 PM (IST)
+</div>
+
+</td>
+
+</tr>
+
+</table>
+
+</td>
+</tr>
+
+</table>
+
+</td>
+</tr>
+
+
+<!-- ZOOM -->
+
+<tr>
+<td style='
+    padding:30px 40px;
+'>
+
+<table width='100%'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       role='presentation'
+       style='
+           background-color:#176b3a;
+           border-radius:10px;
+       '>
+
+<tr>
+
+<td align='center'
+    style='padding:30px 25px;'>
+
+<div style='
+    font-size:19px;
+    font-weight:700;
+    color:#ffffff;
+'>
+    Ready to Join?
+</div>
+
+<p style='
+    margin:9px 0 22px 0;
+    font-size:14px;
+    line-height:1.6;
+    color:#dcefe3;
+'>
+    Join the ESG &amp; BRSR session using the
+    Zoom meeting link below.
+</p>
+
+<table cellpadding='0'
+       cellspacing='0'
+       border='0'
+       role='presentation'>
+
+<tr>
+
+<td align='center'
+    style='
+        background-color:#ffffff;
+        border-radius:6px;
+    '>
+
+<a href='{System.Net.WebUtility.HtmlEncode(zoomLink)}'
+   style='
+       display:inline-block;
+       padding:14px 30px;
+       color:#176b3a;
+       text-decoration:none;
+       font-size:15px;
+       font-weight:700;
+   '>
+    JOIN SESSION
+</a>
+
+</td>
+
+</tr>
+
+</table>
+
+</td>
+</tr>
+
+</table>
+
+</td>
+</tr>
+<!-- MEETING DETAILS -->
+
+<tr>
+    <td style='
+        padding:0 40px 25px 40px;
+    '>
+
+        <table width='100%'
+               cellpadding='0'
+               cellspacing='0'
+               border='0'
+               role='presentation'
+               style='
+                   border:1px solid #e1e6e3;
+                   border-radius:10px;
+                   background-color:#ffffff;
+               '>
+
+            <tr>
+                <td style='padding:22px 24px;'>
+
+                    <div style='
+                        font-size:14px;
+                        font-weight:700;
+                        color:#202124;
+                        margin-bottom:15px;
+                    '>
+                        Zoom Meeting Details
+                    </div>
+
+                    <div style='
+                        font-size:13px;
+                        line-height:1.9;
+                        color:#5f6368;
+                    '>
+
+                        <strong style='color:#333333;'>
+                            Meeting ID:
+                        </strong>
+                        {meetingId}
+                        <br>
+
+                        <strong style='color:#333333;'>
+                            Passcode:
+                        </strong>
+                        {passcode}
+                        <br>
+
+                        <strong style='color:#333333;'>
+                            Meeting Chat:
+                        </strong>
+                        <a href='{meetingChatLink}'
+                           style='
+                               color:#176b3a;
+                               font-weight:600;
+                               text-decoration:none;
+                           '>
+                            Join Meeting Chat
+                        </a>
+
+                    </div>
+
+                </td>
+            </tr>
+
+        </table>
+
+    </td>
+</tr>
+
+<!-- INSTRUCTIONS -->
+
+<tr>
+<td style='
+    padding:0 40px 30px 40px;
+'>
+
+<table width='100%'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       role='presentation'
+       style='
+           background-color:#f8f9fa;
+           border-radius:8px;
+       '>
+
+<tr>
+
+<td style='
+    padding:22px 24px;
+'>
+
+<div style='
+    font-size:14px;
+    font-weight:700;
+    color:#202124;
+    margin-bottom:12px;
+'>
+    Before You Join
+</div>
+
+<div style='
+    font-size:13px;
+    line-height:1.8;
+    color:#5f6368;
+'>
+
+• Please join 10 minutes prior to the session start time.</strong>.<br>
+
+• Ensure a stable internet connection for an uninterrupted experience.<br>
+
+• Keep your microphone muted unless speaking, and feel free to use the chat/Q&A for questions.<br>
+
+• Attendance across both days is required to be eligible for the certificate.
+
+</div>
+
+</td>
+
+</tr>
+
+</table>
+
+</td>
+</tr>
+
+
+<!-- CLOSING -->
+
+<tr>
+<td style='
+    padding:5px 40px 35px 40px;
+'>
+
+<p style='
+    margin:0;
+    font-size:14px;
+    line-height:1.7;
+    color:#5f6368;
+'>
+    We look forward to having you with us.
+</p>
+
+<p style='
+    margin:18px 0 0 0;
+    font-size:14px;
+    line-height:1.6;
+    color:#202124;
+'>
+    Best regards,<br>
+    <strong>Ecoex Academy Team</strong><br>
+  8414805229
+</p>
+
+</td>
+</tr>
+
+
+<!-- FOOTER -->
+
+<tr>
+
+<td align='center'
+    style='
+        padding:28px 35px;
+        background-color:#f5f6f5;
+        border-top:1px solid #e6e8e6;
+    '>
+
+<div style='
+    font-size:14px;
+    font-weight:700;
+    color:#333333;
+'>
+    ECOEX ACADEMY
+</div>
+
+<div style='
+    margin-top:7px;
+    font-size:12px;
+    color:#777777;
+'>
+    Sustainability • Circular Economy • ESG
+</div>
+
+<div style='
+    margin-top:15px;
+    font-size:11px;
+    color:#999999;
+'>
+    This is an automated communication from
+    Ecoex Academy. 
+  
+</div>
+
+<div style='
+    margin-top:10px;
+    font-size:11px;
+    color:#aaaaaa;
+'>
+    © {DateTime.Now.Year} Ecoex Academy.
+    All rights reserved.
+</div>
+
+</td>
+
+</tr>
+
+</table>
+
+</td>
+</tr>
+
+</table>
+
+</body>
+</html>";
+
+                using var message = new MailMessage(
+                    fromAddress,
+                    toAddress
+                );
+
+                message.Subject =
+                    "Zoom Link & Joining Details – ESG & BRSR Certification Course (12–13 Sept 2026)";
+
+                message.Body = htmlBody;
+                message.IsBodyHtml = true;
+
+                message.Headers.Add(
+                    "X-Mailer",
+                    "Ecoex Academy"
+                );
+
+                message.Headers.Add(
+                    "X-Auto-Response-Suppress",
+                    "All"
+                );
+
+                await smtp.SendMailAsync(message);
+
+                return new Response
+                {
+                    Success = true,
+                    Message = "ESG & BRSR Zoom link email sent successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                return new Response
+                {
+                    Success = false,
+                    Message = ex.Message
+                };
+            }
+        }
+
+
         public async Task<Response> SendZoomLinkEmail(
           int userId,
           string zoomLink,

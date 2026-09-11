@@ -20,7 +20,7 @@ using Microsoft.EntityFrameworkCore;
 
 using SkiaSharp;
 
-namespace Ecoex_Academy_Api
+namespace Ecoex_Academy_Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
@@ -208,7 +208,7 @@ namespace Ecoex_Academy_Api
                         await _context.SaveChangesAsync();
 
                         var emailResult =
-                            await _emailService.SendZoomLinkEmail(
+                            await _emailService.SendCourse2ZoomEmail(
                                 user.UserId,
                                 sessionParticipant.ZoomLink!,
                                 course.Name,

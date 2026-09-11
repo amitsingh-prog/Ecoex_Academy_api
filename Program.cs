@@ -41,7 +41,7 @@ builder.Services.AddScoped<
     CertificateServices
 >();
 
-builder.Services.AddHostedService<CertificateBackgroundService>();
+builder.Services.AddScoped<CertificateBackgroundService>();
 
 // ============================================================
 // HTTP CLIENT

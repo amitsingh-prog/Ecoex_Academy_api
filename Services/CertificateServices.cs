@@ -442,7 +442,7 @@ namespace Ecoex_Academy_Api.Services
                 Directory.GetCurrentDirectory(),
                 "wwwroot",
                 "Template",
-                "certificate.png"
+                "certificate_1.png"
             );
 
             if (!System.IO.File.Exists(templatePath))
@@ -528,51 +528,57 @@ namespace Ecoex_Academy_Api.Services
                     return Math.Max(minSize, size);
                 }
 
-                using var namePaint = new SKPaint { Color = SKColors.Black, IsAntialias = true };
-                using var coursePaint = new SKPaint { Color = SKColors.Black, IsAntialias = true };
+                using var namePaint = new SKPaint { Color = SKColors.IndianRed, IsAntialias = true };
+                using var coursePaint = new SKPaint { Color = SKColors.DarkRed, IsAntialias = true };
                 using var datePaint = new SKPaint { Color = SKColors.Black, IsAntialias = true };
                 using var certificateIdPaint = new SKPaint { Color = SKColors.Black, IsAntialias = true };
 
                 // Center X is the same for every row: the true midpoint of the template.
                 float pageCenterX = templateBitmap.Width / 2f;
 
-                // Keep only the Y positions per row, plus a margin that defines the
-                // max width text is allowed to occupy before it auto-shrinks.
                 float sideMargin = 150f;
                 float maxTextWidth = templateBitmap.Width - (sideMargin * 2f);
 
-                float nameTop = 690f, nameBottom = 790f;
-                float courseTop = 930f, courseBottom = 1010f;
-                float dateTop = 1010f, dateBottom = 1090f;
-                float certTop = 1940f, certBottom = 2010f;
+                // Static captions (not in the template image — draw them too)
+                string certifyLine = "This is to certify that";
+                string undergoneLine = "has successfully undergone a course on";
 
+                float certifyTop = 492f, certifyBottom = 535f;
+                float nameTop = 569f, nameBottom = 616f;
+                float undergoneTop = 645f, undergoneBottom = 688f;
+                float courseTop = 719f, courseBottom = 761f;
+                float dateTop = 786f, dateBottom = 833f;
+                float certTop = 1250f, certBottom = 1290f; // moved back inside canvas (height is 1414)
+
+                using var captionPaint = new SKPaint { Color = SKColors.Black, IsAntialias = true };
+
+                float certifySize = FitTextSize(typeface, certifyLine, maxTextWidth, startingSize: 40f, minSize: 16f);
+                float undergoneSize = FitTextSize(typeface, undergoneLine, maxTextWidth, startingSize: 40f, minSize: 16f);
                 float nameSize = FitTextSize(typeface, participantName, maxTextWidth, startingSize: 48f, minSize: 18f);
-                float courseSize = FitTextSize(typeface, courseName, maxTextWidth, startingSize: 48f, minSize: 18f);
-                float dateSize = FitTextSize(typeface, date, maxTextWidth, startingSize: 48f, minSize: 18f);
+                float courseSize = FitTextSize(typeface, courseName, maxTextWidth, startingSize: 44f, minSize: 18f);
+                float dateSize = FitTextSize(typeface, date, maxTextWidth, startingSize: 40f, minSize: 16f);
                 string certIdText = $"Certificate ID: {certificateId}";
                 float certIdSize = FitTextSize(typeface, certIdText, maxTextWidth, startingSize: 22f, minSize: 12f);
 
+                using var certifyFont = new SKFont(typeface, certifySize);
+                using var undergoneFont = new SKFont(typeface, undergoneSize);
                 using var nameFont = new SKFont(typeface, nameSize);
                 using var courseFont = new SKFont(typeface, courseSize);
                 using var dateFont = new SKFont(typeface, dateSize);
                 using var certIdFont = new SKFont(typeface, certIdSize);
 
-                SKFontMetrics nm = nameFont.Metrics;
-                float nameY = (nameTop + nameBottom) / 2f - (nm.Ascent + nm.Descent) / 2f;
+                float CenterY(float top, float bottom, SKFont font)
+                {
+                    var m = font.Metrics;
+                    return (top + bottom) / 2f - (m.Ascent + m.Descent) / 2f;
+                }
 
-                SKFontMetrics cm = courseFont.Metrics;
-                float courseY = (courseTop + courseBottom) / 2f - (cm.Ascent + cm.Descent) / 2f;
-
-                SKFontMetrics dm = dateFont.Metrics;
-                float dateY = (dateTop + dateBottom) / 2f - (dm.Ascent + dm.Descent) / 2f;
-
-                SKFontMetrics cim = certIdFont.Metrics;
-                float certY = (certTop + certBottom) / 2f - (cim.Ascent + cim.Descent) / 2f;
-
-                canvas.DrawText(participantName, pageCenterX, nameY, SKTextAlign.Center, nameFont, namePaint);
-                canvas.DrawText(courseName, pageCenterX, courseY, SKTextAlign.Center, courseFont, coursePaint);
-                canvas.DrawText(date, pageCenterX, dateY, SKTextAlign.Center, dateFont, datePaint);
-                canvas.DrawText(certIdText, pageCenterX, certY, SKTextAlign.Center, certIdFont, certificateIdPaint);
+                canvas.DrawText(certifyLine, pageCenterX, CenterY(certifyTop, certifyBottom, certifyFont), SKTextAlign.Center, certifyFont, captionPaint);
+                canvas.DrawText(participantName, pageCenterX, CenterY(nameTop, nameBottom, nameFont), SKTextAlign.Center, nameFont, namePaint);
+                canvas.DrawText(undergoneLine, pageCenterX, CenterY(undergoneTop, undergoneBottom, undergoneFont), SKTextAlign.Center, undergoneFont, captionPaint);
+                canvas.DrawText(courseName, pageCenterX, CenterY(courseTop, courseBottom, courseFont), SKTextAlign.Center, courseFont, coursePaint);
+                canvas.DrawText(date, pageCenterX, CenterY(dateTop, dateBottom, dateFont), SKTextAlign.Center, dateFont, datePaint);
+                canvas.DrawText(certIdText, pageCenterX, CenterY(certTop, certBottom, certIdFont), SKTextAlign.Center, certIdFont, certificateIdPaint);
 
                 using var img = surface.Snapshot();
                 using var data = img.Encode(SKEncodedImageFormat.Png, 100);
