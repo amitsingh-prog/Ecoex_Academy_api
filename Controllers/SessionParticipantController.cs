@@ -49,15 +49,18 @@ namespace Ecoex_Academy_Api.Controllers
         {
             try
             {
-                var participants = await _context.tb_Users
-                    .Where(x => x.EmailVerified == true)
-                    .Select(x => new Get_Participants
+                var participants = await (
+                    from participant in _context.tb_SessionParticipant
+                    join user in _context.tb_Users
+                        on participant.UserID equals user.UserId
+                    where participant.ReminderEmailStatus == null
+                    select new Get_Participants
                     {
-                        UserId = x.UserId,
-                        Email = x.Email,
-                        Name = x.Name
-                    })
-                    .ToListAsync();
+                        UserId = user.UserId,
+                        Email = user.Email,
+                        Name = user.Name
+                    }
+                ).ToListAsync();
 
                 return Ok(participants);
             }
@@ -301,6 +304,238 @@ namespace Ecoex_Academy_Api.Controllers
                 );
             }
         }
+
+        // =========================================================
+        // SEND ZOOM REMINDER
+        // =========================================================
+
+        [HttpPost("send-reminder")]
+        public async Task<IActionResult> SendReminder(
+            [FromBody] List<Get_Participants> obj_participants,
+            [FromQuery] int courseID)
+        {
+            if (obj_participants == null ||
+                obj_participants.Count == 0)
+            {
+                return BadRequest("No participants were provided.");
+            }
+
+            if (courseID <= 0)
+            {
+                return BadRequest("Invalid Course ID.");
+            }
+
+            try
+            {
+                // -------------------------------------------------
+                // Check Course
+                // -------------------------------------------------
+
+                var course = await _context.tb_Courses
+                    .FirstOrDefaultAsync(x =>
+                        x.CourseID == courseID);
+
+                if (course == null)
+                {
+                    return NotFound(
+                        $"Course with ID {courseID} not found."
+                    );
+                }
+
+                int total = obj_participants.Count;
+                int sent = 0;
+                int failed = 0;
+                int skipped = 0;
+
+                // -------------------------------------------------
+                // Process Participants
+                // -------------------------------------------------
+
+                foreach (var participant in obj_participants)
+                {
+                    try
+                    {
+                        // -----------------------------------------
+                        // Validate UserId
+                        // -----------------------------------------
+
+                        if (participant.UserId <= 0)
+                        {
+                            skipped++;
+                            continue;
+                        }
+
+                        // -----------------------------------------
+                        // Get User
+                        // -----------------------------------------
+
+                        var user = await _context.tb_Users
+                            .FirstOrDefaultAsync(x =>
+                                x.UserId == participant.UserId);
+
+                        if (user == null)
+                        {
+                            skipped++;
+                            continue;
+                        }
+
+                        if (string.IsNullOrWhiteSpace(user.Email))
+                        {
+                            skipped++;
+                            continue;
+                        }
+
+                        // -----------------------------------------
+                        // Get Session Participant
+                        // -----------------------------------------
+
+                        var sessionParticipant =
+                            await _context.tb_SessionParticipant
+                                .FirstOrDefaultAsync(x =>
+                                    x.UserID == user.UserId &&
+                                    x.CourseID == courseID);
+
+                        if (sessionParticipant == null)
+                        {
+                            skipped++;
+                            continue;
+                        }
+
+                        // -----------------------------------------
+                        // Check if Reminder Already Sent
+                        // -----------------------------------------
+
+                        if (sessionParticipant.ReminderEmailStatus ==
+                            ZoomEmailStatus.Sent)
+                        {
+                            skipped++;
+                            continue;
+                        }
+
+                        // -----------------------------------------
+                        // Mark Reminder Processing
+                        // -----------------------------------------
+
+                        sessionParticipant.ReminderEmailStatus =
+                            ZoomEmailStatus.Processing;
+
+                        sessionParticipant.ReminderEmailSentAt = null;
+
+                        sessionParticipant.ReminderEmailResponse = null;
+
+                        sessionParticipant.UpdatedAt =
+                            DateTime.UtcNow;
+
+                        await _context.SaveChangesAsync();
+
+                        // -----------------------------------------
+                        // Course Specific Reminder
+                        // -----------------------------------------
+
+                        var emailResult = await _emailService
+                                .SendCourse2ReminderEmail(
+                                    user.UserId,
+                                    sessionParticipant.StartDateTime
+                                );
+
+                        // -----------------------------------------
+                        // Email Success
+                        // -----------------------------------------
+
+                        if (emailResult.Success)
+                        {
+                            sessionParticipant.ReminderEmailStatus =
+                                ZoomEmailStatus.Sent;
+
+                            sessionParticipant.ReminderEmailSentAt =
+                                DateTime.UtcNow;
+
+                            sessionParticipant.ReminderEmailResponse =
+                                emailResult.Message;
+
+                            sessionParticipant.UpdatedAt =
+                                DateTime.UtcNow;
+
+                            sent++;
+                        }
+                        else
+                        {
+                            sessionParticipant.ReminderEmailStatus =
+                                ZoomEmailStatus.Failed;
+
+                            sessionParticipant.ReminderEmailSentAt =
+                                null;
+
+                            sessionParticipant.ReminderEmailResponse =
+                                emailResult.Message;
+
+                            sessionParticipant.UpdatedAt =
+                                DateTime.UtcNow;
+
+                            failed++;
+                        }
+
+                        await _context.SaveChangesAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        failed++;
+
+                        // -----------------------------------------
+                        // Update Failed Status
+                        // -----------------------------------------
+
+                        var failedParticipant =
+                            await _context.tb_SessionParticipant
+                                .FirstOrDefaultAsync(x =>
+                                    x.UserID == participant.UserId &&
+                                    x.CourseID == courseID);
+
+                        if (failedParticipant != null)
+                        {
+                            failedParticipant.ReminderEmailStatus =
+                                ZoomEmailStatus.Failed;
+
+                            failedParticipant.ReminderEmailSentAt =
+                                null;
+
+                            failedParticipant.ReminderEmailResponse =
+                                ex.Message;
+
+                            failedParticipant.UpdatedAt =
+                                DateTime.UtcNow;
+
+                            await _context.SaveChangesAsync();
+                        }
+
+                        continue;
+                    }
+                }
+
+                // -------------------------------------------------
+                // Response
+                // -------------------------------------------------
+
+                return Ok(new
+                {
+                    Success = true,
+                    Message = "Reminder email processing completed.",
+                    CourseID = courseID,
+                    Total = total,
+                    Sent = sent,
+                    Failed = failed,
+                    Skipped = skipped
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    $"Error sending reminder emails: {ex.Message}"
+                );
+            }
+        }
+
 
 
         // =========================================================

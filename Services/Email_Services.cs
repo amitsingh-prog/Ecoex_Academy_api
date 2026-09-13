@@ -12,6 +12,8 @@ using System;
 using System.Drawing;
 using System.Net;
 using System.Net.Mail;
+using System.Numerics;
+using System.Text;
 using static System.Net.Mime.MediaTypeNames;
 
 
@@ -2653,6 +2655,399 @@ Empowering professionals with knowledge and skills.
                 {
                     Success = true,
                     Message = "ESG & BRSR Zoom link email sent successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                return new Response
+                {
+                    Success = false,
+                    Message = ex.Message
+                };
+            }
+        }
+
+
+        public async Task<Response> SendCourse2ReminderEmail(
+            int userId,
+            DateTime StartDateTime)
+        {
+            try
+            {
+                // Get user
+                var user = await _context.tb_Users
+                    .FirstOrDefaultAsync(x => x.UserId == userId);
+
+                if (user == null)
+                {
+                    return new Response
+                    {
+                        Success = false,
+                        Message = "User not found."
+                    };
+                }
+
+                if (string.IsNullOrWhiteSpace(user.Email))
+                {
+                    return new Response
+                    {
+                        Success = false,
+                        Message = "User email address is not available."
+                    };
+                }
+
+                // Calculate remaining time
+                TimeSpan remainingTime =
+                    StartDateTime - DateTime.Now;
+
+                string reminderText;
+
+                reminderText = "Your session starts at 11 Am  ";
+
+
+
+                // Format date and time
+                string formattedDate =
+                    StartDateTime.ToString("dddd, dd MMMM yyyy");
+
+                string formattedTime =
+                    StartDateTime.ToString("hh:mm tt");
+
+                // Encode user name
+                string encodedName =
+                    System.Net.WebUtility.HtmlEncode(user.Name);
+
+                // SMTP configuration
+                using var smtp = new SmtpClient
+                {
+                    Host = "smtp-relay.brevo.com",
+                    Port = 587,
+                    EnableSsl = true,
+                    DeliveryMethod = SmtpDeliveryMethod.Network,
+                    UseDefaultCredentials = false,
+                    Credentials = new NetworkCredential(
+                        "info@ecoex.market",
+                        brevokey)
+                };
+
+                var fromAddress = new MailAddress(
+                    "info@ecoex.market",
+                    "Ecoex Academy");
+
+                var toAddress = new MailAddress(
+                    user.Email,
+                    user.Name);
+
+                // Simple reminder email
+                var htmlBody = $@"
+<!DOCTYPE html>
+<html lang='en'>
+
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport'
+          content='width=device-width, initial-scale=1.0'>
+    <title>Ecoex Academy - Session Reminder</title>
+</head>
+
+<body style='
+    margin:0;
+    padding:0;
+    background-color:#f3f5f7;
+    font-family:Arial, Helvetica, sans-serif;
+    color:#202124;
+'>
+
+<table width='100%'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       style='
+           width:100%;
+           background-color:#f3f5f7;
+           padding:40px 15px;
+       '>
+
+<tr>
+<td align='center'>
+
+<table width='600'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       style='
+           width:100%;
+           max-width:600px;
+           background-color:#ffffff;
+           border-radius:12px;
+           overflow:hidden;
+       '>
+
+<!-- HEADER -->
+
+<tr>
+<td style='
+    padding:25px 35px;
+    border-bottom:1px solid #e8eaed;
+'>
+
+<div style='
+    font-size:24px;
+    font-weight:700;
+    letter-spacing:1px;
+    color:#176b3a;
+'>
+    ECOEX ACADEMY
+</div>
+
+</td>
+</tr>
+
+
+<!-- CONTENT -->
+
+<tr>
+<td style='padding:40px 35px;'>
+
+<div style='
+    display:inline-block;
+    padding:7px 12px;
+    background-color:#e2f2e8;
+    color:#176b3a;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0.8px;
+    border-radius:20px;
+'>
+    SESSION REMINDER
+</div>
+
+<h1 style='
+    margin:20px 0 15px 0;
+    font-size:27px;
+    line-height:1.3;
+    color:#202124;
+'>
+    {reminderText}
+</h1>
+
+<p style='
+    margin:0 0 25px 0;
+    font-size:15px;
+    line-height:1.7;
+    color:#5f6368;
+'>
+    Dear <strong style='color:#202124;'>{encodedName}</strong>,
+</p>
+
+<p style='
+    margin:0 0 25px 0;
+    font-size:15px;
+    line-height:1.7;
+    color:#5f6368;
+'>
+    This is a reminder that your
+    <strong style='color:#333333;'>
+        Certification Course on ESG &amp; BRSR for Businesses
+    </strong>
+    session is scheduled for:
+</p>
+
+
+<!-- SESSION INFO -->
+
+<table width='100%'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       style='
+           background-color:#f7fbf8;
+           border:1px solid #e1e6e3;
+           border-radius:8px;
+       '>
+
+<tr>
+<td style='padding:18px 20px;'>
+
+<div style='
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0.8px;
+    color:#7a817d;
+'>
+    DATE
+</div>
+
+<div style='
+    margin-top:5px;
+    font-size:16px;
+    font-weight:600;
+    color:#202124;
+'>
+   Sunday , 13 September
+</div>
+
+</td>
+</tr>
+
+<tr>
+<td style='
+    padding:0 20px 18px 20px;
+'>
+
+<div style='
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0.8px;
+    color:#7a817d;
+'>
+    SESSION TIME
+</div>
+
+<div style='
+    margin-top:5px;
+    font-size:16px;
+    font-weight:600;
+    color:#202124;
+'>
+    {formattedTime} (IST)
+</div>
+
+</td>
+</tr>
+
+</table>
+
+
+<!-- REMINDER -->
+
+<table width='100%'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       style='margin-top:25px;'>
+
+<tr>
+<td style='
+    padding:18px 20px;
+    background-color:#f8f9fa;
+    border-radius:8px;
+'>
+
+<p style='
+    margin:0;
+    font-size:14px;
+    line-height:1.7;
+    color:#5f6368;
+'>
+    Please be ready and join the session on time.
+    The Zoom meeting details and joining link were
+    already shared with you in the previous email.
+</p>
+
+</td>
+</tr>
+
+</table>
+
+
+<p style='
+    margin:30px 0 0 0;
+    font-size:14px;
+    line-height:1.7;
+    color:#5f6368;
+'>
+    We look forward to seeing you in the session.
+</p>
+
+<p style='
+    margin:20px 0 0 0;
+    font-size:14px;
+    line-height:1.6;
+    color:#202124;
+'>
+    Best regards,<br>
+    <strong>Ecoex Academy Team</strong>
+</p>
+
+</td>
+</tr>
+
+
+<!-- FOOTER -->
+
+<tr>
+<td align='center'
+    style='
+        padding:25px 30px;
+        background-color:#f5f6f5;
+        border-top:1px solid #e6e8e6;
+    '>
+
+<div style='
+    font-size:14px;
+    font-weight:700;
+    color:#333333;
+'>
+    ECOEX ACADEMY
+</div>
+
+<div style='
+    margin-top:7px;
+    font-size:12px;
+    color:#777777;
+'>
+    Sustainability • Circular Economy • ESG
+</div>
+
+<div style='
+    margin-top:12px;
+    font-size:11px;
+    color:#999999;
+'>
+    This is an automated communication from Ecoex Academy.
+</div>
+
+</td>
+</tr>
+
+</table>
+
+</td>
+</tr>
+
+</table>
+
+</body>
+</html>";
+
+                // Create email
+                using var message = new MailMessage(
+                    fromAddress,
+                    toAddress);
+
+                message.Subject =
+                    $"Reminder | ESG & BRSR – {reminderText}";
+
+                message.Body = htmlBody;
+                message.IsBodyHtml = true;
+
+                message.Headers.Add(
+                    "X-Mailer",
+                    "Ecoex Academy");
+
+                message.Headers.Add(
+                    "X-Auto-Response-Suppress",
+                    "All");
+
+                // Send email
+                await smtp.SendMailAsync(message);
+
+                return new Response
+                {
+                    Success = true,
+                    Message =
+                        "ESG & BRSR reminder email sent successfully."
                 };
             }
             catch (Exception ex)

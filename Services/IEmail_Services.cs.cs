@@ -17,6 +17,7 @@ namespace Ecoeex_Academy_Api.Services
 
         Task<Response> SendZoomLinkEmail(int userId, string zoomLink, string courseName, DateTime startDateTime, DateTime? endDateTime);
         Task<Response> SendCourse2ZoomEmail(int userId, string zoomLink, string courseName, DateTime startDateTime, DateTime? endDateTime);
+        Task<Response> SendCourse2ReminderEmail(int userId, DateTime StartDateTime);
 
         Task<Response> SendCertificateEmail(int userId, string certificateId, string courseName, string? certificateFilePath);
 

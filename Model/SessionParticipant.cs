@@ -25,7 +25,11 @@ namespace Ecoex_Academy_Api.Models
         public DateTime? ZoomEmailSentAt { get; set; }
 
         public string? ZoomEmailResponse { get; set; }
+        public ZoomEmailStatus? ReminderEmailStatus { get; set; } = ZoomEmailStatus.Pending;
 
+
+        public DateTime? ReminderEmailSentAt { get; set; }
+        public string? ReminderEmailResponse { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         public DateTime? UpdatedAt { get; set; }
