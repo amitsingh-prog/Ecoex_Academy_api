@@ -4,7 +4,9 @@ using Ecoeex_Academy_Api.Model;
 using Ecoeex_Academy_Api.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileSystemGlobbing;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -15,7 +17,6 @@ using System.Net.Mail;
 using System.Numerics;
 using System.Text;
 using static System.Net.Mime.MediaTypeNames;
-
 
 namespace Ecoeex_Academy_Api.Services
 {
@@ -3815,7 +3816,454 @@ Empowering professionals with knowledge and skills.
 
 
 
-        public async Task<Response> SendCertificateEmail(int userId, string certificateId, string courseName, string? certificateFilePath)
+        //        public async Task<Response> SendCertificateEmail(int userId, string certificateId, string courseName, string? certificateFilePath)
+        //        {
+        //            try
+        //            {
+        //                // -----------------------------------------
+        //                // Get User
+        //                // -----------------------------------------
+
+        //                var user = await _context.tb_Users
+        //                    .FirstOrDefaultAsync(x => x.UserId == userId);
+
+        //                if (user == null)
+        //                {
+        //                    return new Response
+        //                    {
+        //                        Success = false,
+        //                        Message = "User not found."
+        //                    };
+        //                }
+
+        //                if (string.IsNullOrWhiteSpace(user.Email))
+        //                {
+        //                    return new Response
+        //                    {
+        //                        Success = false,
+        //                        Message = "User email address is missing."
+        //                    };
+        //                }
+
+
+        //                // -----------------------------------------
+        //                // SMTP Configuration
+        //                // -----------------------------------------
+
+        //                var smtp = new SmtpClient
+        //                {
+        //                    Host = "smtp-relay.brevo.com",
+        //                    Port = 587,
+        //                    EnableSsl = true,
+        //                    DeliveryMethod = SmtpDeliveryMethod.Network,
+        //                    UseDefaultCredentials = false,
+        //                    Credentials = new NetworkCredential(
+        //                        "info@ecoex.market",
+        //                        brevokey
+        //                    )
+        //                };
+
+
+        //                // -----------------------------------------
+        //                // Email Addresses
+        //                // -----------------------------------------
+
+        //                var fromAddress = new MailAddress(
+        //                    "info@ecoex.market",
+        //                    "Ecoex Academy"
+        //                );
+
+        //                var toAddress = new MailAddress(
+        //                    user.Email,
+        //                    user.Name
+        //                );
+
+
+        //                // -----------------------------------------
+        //                // Certificate Link
+        //                // -----------------------------------------
+
+        //                string certificateSection = string.Empty;
+
+        //                if (!string.IsNullOrWhiteSpace(certificateFilePath))
+        //                {
+        //                    certificateSection = $@"
+        //                <div style='
+        //                    margin:30px 0;
+        //                    text-align:center;
+        //                '>
+
+        //                    <a href='{certificateFilePath}'
+        //                       style='
+        //                           display:inline-block;
+        //                           padding:13px 28px;
+        //                           background:#1a73e8;
+        //                           color:#ffffff;
+        //                           text-decoration:none;
+        //                           border-radius:6px;
+        //                           font-size:14px;
+        //                           font-weight:600;
+        //                       '>
+        //                        View Certificate
+        //                    </a>
+
+        //                </div>";
+        //                }
+
+
+        //                // -----------------------------------------
+        //                // Email Body
+        //                // -----------------------------------------
+
+        //                string htmlBody = $@"
+        //<!DOCTYPE html>
+
+        //<html>
+
+        //<head>
+
+        //    <meta charset='UTF-8' />
+
+        //    <meta name='viewport'
+        //          content='width=device-width, initial-scale=1.0' />
+
+        //</head>
+
+        //<body style='
+        //    margin:0;
+        //    padding:0;
+        //    background:#f4f6f8;
+        //    font-family:Arial,Helvetica,sans-serif;
+        //'>
+
+        //<table width='100%'
+        //       cellpadding='0'
+        //       cellspacing='0'
+        //       border='0'
+        //       style='background:#f4f6f8;padding:30px 10px;'>
+
+        //<tr>
+
+        //<td align='center'>
+
+        //<table width='600'
+        //       cellpadding='0'
+        //       cellspacing='0'
+        //       border='0'
+        //       style='
+        //           max-width:600px;
+        //           width:100%;
+        //           background:#ffffff;
+        //           border-radius:10px;
+        //           overflow:hidden;
+        //       '>
+
+
+        //<!-- HEADER -->
+
+        //<tr>
+
+        //<td style='
+        //    background:#111827;
+        //    padding:24px 30px;
+        //    text-align:center;
+        //'>
+
+        //    <div style='
+        //        color:#ffffff;
+        //        font-size:24px;
+        //        font-weight:700;
+        //    '>
+        //        Ecoex Academy
+        //    </div>
+
+        //    <div style='
+        //        color:#d1d5db;
+        //        font-size:13px;
+        //        margin-top:5px;
+        //    '>
+        //        Learning • Knowledge • Growth
+        //    </div>
+
+        //</td>
+
+        //</tr>
+
+
+        //<!-- CONTENT -->
+
+        //<tr>
+
+        //<td style='padding:35px 35px 20px 35px;'>
+
+        //    <p style='
+        //        margin:0 0 18px 0;
+        //        font-size:16px;
+        //        color:#111827;
+        //    '>
+        //        Dear <strong>{user.Name}</strong>,
+        //    </p>
+
+
+        //    <p style='
+        //        margin:0 0 18px 0;
+        //        font-size:15px;
+        //        line-height:1.7;
+        //        color:#4b5563;
+        //    '>
+
+        //        Congratulations on successfully completing the
+        //        <strong>{courseName}</strong> session with
+        //        <strong>Ecoex Academy</strong>.
+
+        //    </p>
+
+
+        //    <p style='
+        //        margin:0 0 25px 0;
+        //        font-size:15px;
+        //        line-height:1.7;
+        //        color:#4b5563;
+        //    '>
+
+        //        Your certificate has been issued and is now available
+        //        for your records.
+
+        //    </p>
+
+
+        //    <!-- CERTIFICATE DETAILS -->
+
+        //    <table width='100%'
+        //           cellpadding='0'
+        //           cellspacing='0'
+        //           border='0'
+        //           style='
+        //               background:#f8fafc;
+        //               border:1px solid #e5e7eb;
+        //               border-radius:8px;
+        //           '>
+
+        //        <tr>
+
+        //            <td style='padding:18px 20px;'>
+
+        //                <div style='
+        //                    font-size:12px;
+        //                    color:#6b7280;
+        //                    margin-bottom:5px;
+        //                '>
+        //                    COURSE
+        //                </div>
+
+        //                <div style='
+        //                    font-size:15px;
+        //                    color:#111827;
+        //                    font-weight:600;
+        //                '>
+        //                    {courseName}
+        //                </div>
+
+        //            </td>
+
+        //        </tr>
+
+
+        //        <tr>
+
+        //            <td style='
+        //                padding:0 20px 18px 20px;
+        //            '>
+
+        //                <div style='
+        //                    font-size:12px;
+        //                    color:#6b7280;
+        //                    margin-bottom:5px;
+        //                '>
+        //                    CERTIFICATE ID
+        //                </div>
+
+        //                <div style='
+        //                    font-size:14px;
+        //                    color:#111827;
+        //                    font-weight:600;
+        //                '>
+        //                    {certificateId}
+        //                </div>
+
+        //            </td>
+
+        //        </tr>
+
+
+        //        <tr>
+
+        //            <td style='
+        //                padding:0 20px 18px 20px;
+        //            '>
+
+        //                <div style='
+        //                    font-size:12px;
+        //                    color:#6b7280;
+        //                    margin-bottom:5px;
+        //                '>
+        //                    ISSUE DATE
+        //                </div>
+
+        //                <div style='
+        //                    font-size:14px;
+        //                    color:#111827;
+        //                    font-weight:600;
+        //                '>
+        //                    {DateTime.UtcNow:dd MMMM yyyy}
+        //                </div>
+
+        //            </td>
+
+        //        </tr>
+
+        //    </table>
+
+
+        //    {certificateSection}
+
+
+        //    <p style='
+        //        margin:20px 0 0 0;
+        //        font-size:14px;
+        //        line-height:1.7;
+        //        color:#6b7280;
+        //    '>
+
+        //        Please retain this certificate for your future reference.
+        //        The Certificate ID can be used to verify the authenticity
+        //        of your certificate.
+
+        //    </p>
+
+
+        //    <p style='
+        //        margin:25px 0 0 0;
+        //        font-size:15px;
+        //        color:#374151;
+        //    '>
+
+        //        Best regards,<br />
+
+        //        <strong>Ecoex Academy</strong><br />
+
+        //        Ecoex Market
+
+        //    </p>
+
+        //</td>
+
+        //</tr>
+
+
+        //<!-- FOOTER -->
+
+        //<tr>
+
+        //<td style='
+        //    background:#f8fafc;
+        //    border-top:1px solid #e5e7eb;
+        //    padding:22px 30px;
+        //    text-align:center;
+        //'>
+
+        //    <p style='
+        //        margin:0;
+        //        font-size:12px;
+        //        color:#9ca3af;
+        //        line-height:1.6;
+        //    '>
+
+        //        This is an automated email from Ecoex Academy.
+        //        Please do not reply directly to this email.
+
+        //    </p>
+
+        //    <p style='
+        //        margin:8px 0 0 0;
+        //        font-size:12px;
+        //        color:#9ca3af;
+        //    '>
+
+        //        © {DateTime.UtcNow.Year} Ecoex Academy. All rights reserved.
+
+        //    </p>
+
+        //</td>
+
+        //</tr>
+
+
+        //</table>
+
+        //</td>
+
+        //</tr>
+
+        //</table>
+
+        //</body>
+
+        //</html>
+        //";
+
+
+        //                // -----------------------------------------
+        //                // Create Email
+        //                // -----------------------------------------
+
+        //                using var message = new MailMessage(
+        //                    fromAddress,
+        //                    toAddress
+        //                );
+
+        //                message.Subject =
+        //                    "Certificate of Completion | Ecoex Academy";
+
+        //                message.Body = htmlBody;
+
+        //                message.IsBodyHtml = true;
+
+
+        //                // -----------------------------------------
+        //                // Send Email
+        //                // -----------------------------------------
+
+        //                await smtp.SendMailAsync(message);
+
+
+        //                // -----------------------------------------
+        //                // Success
+        //                // -----------------------------------------
+
+        //                return new Response
+        //                {
+        //                    Success = true,
+        //                    Message = "Certificate email sent successfully."
+        //                };
+        //            }
+        //            catch (Exception ex)
+        //            {
+        //                return new Response
+        //                {
+        //                    Success = false,
+        //                    Message = ex.Message
+        //                };
+        //            }
+        //        }
+
+
+
+        public async Task<Response> SendCertificateEmail(
+            int userId,
+            string certificateId,
+            string courseName,
+            string certificateFilePath)
         {
             try
             {
@@ -3846,17 +4294,58 @@ Empowering professionals with knowledge and skills.
 
 
                 // -----------------------------------------
+                // Validate Certificate Path
+                // -----------------------------------------
+
+                if (string.IsNullOrWhiteSpace(certificateFilePath))
+                {
+                    return new Response
+                    {
+                        Success = false,
+                        Message = "Certificate file path is missing."
+                    };
+                }
+
+
+                // -----------------------------------------
+                // Build Physical Certificate Path
+                // -----------------------------------------
+
+                string fullCertificatePath = System.IO.Path.Combine(
+                    System.IO.Directory.GetCurrentDirectory(),
+                    "wwwroot",
+                    certificateFilePath
+                );
+
+
+                // -----------------------------------------
+                // Check Certificate File
+                // -----------------------------------------
+
+                if (!System.IO.File.Exists(fullCertificatePath))
+                {
+                    return new Response
+                    {
+                        Success = false,
+                        Message =
+                            $"Certificate file not found: {fullCertificatePath}"
+                    };
+                }
+
+
+                // -----------------------------------------
                 // SMTP Configuration
                 // -----------------------------------------
 
-                var smtp = new SmtpClient
+                using var smtp = new System.Net.Mail.SmtpClient
                 {
                     Host = "smtp-relay.brevo.com",
                     Port = 587,
                     EnableSsl = true,
-                    DeliveryMethod = SmtpDeliveryMethod.Network,
+                    DeliveryMethod =
+                        System.Net.Mail.SmtpDeliveryMethod.Network,
                     UseDefaultCredentials = false,
-                    Credentials = new NetworkCredential(
+                    Credentials = new System.Net.NetworkCredential(
                         "info@ecoex.market",
                         brevokey
                     )
@@ -3867,52 +4356,33 @@ Empowering professionals with knowledge and skills.
                 // Email Addresses
                 // -----------------------------------------
 
-                var fromAddress = new MailAddress(
+                var fromAddress = new System.Net.Mail.MailAddress(
                     "info@ecoex.market",
                     "Ecoex Academy"
                 );
 
-                var toAddress = new MailAddress(
+                var toAddress = new System.Net.Mail.MailAddress(
                     user.Email,
                     user.Name
                 );
 
 
                 // -----------------------------------------
-                // Certificate Link
-                // -----------------------------------------
-
-                string certificateSection = string.Empty;
-
-                if (!string.IsNullOrWhiteSpace(certificateFilePath))
-                {
-                    certificateSection = $@"
-                <div style='
-                    margin:30px 0;
-                    text-align:center;
-                '>
-
-                    <a href='{certificateFilePath}'
-                       style='
-                           display:inline-block;
-                           padding:13px 28px;
-                           background:#1a73e8;
-                           color:#ffffff;
-                           text-decoration:none;
-                           border-radius:6px;
-                           font-size:14px;
-                           font-weight:600;
-                       '>
-                        View Certificate
-                    </a>
-
-                </div>";
-                }
-
-
-                // -----------------------------------------
                 // Email Body
                 // -----------------------------------------
+
+                string encodedName =
+                    System.Net.WebUtility.HtmlEncode(user.Name);
+
+                string encodedCourseName =
+                    System.Net.WebUtility.HtmlEncode(courseName);
+
+                string encodedCertificateId =
+                    System.Net.WebUtility.HtmlEncode(certificateId);
+
+                string issueDate =
+                    DateTime.UtcNow.ToString("dd MMMM yyyy");
+
 
                 string htmlBody = $@"
 <!DOCTYPE html>
@@ -3920,12 +4390,10 @@ Empowering professionals with knowledge and skills.
 <html>
 
 <head>
-
     <meta charset='UTF-8' />
 
     <meta name='viewport'
           content='width=device-width, initial-scale=1.0' />
-
 </head>
 
 <body style='
@@ -4000,7 +4468,9 @@ Empowering professionals with knowledge and skills.
         font-size:16px;
         color:#111827;
     '>
-        Dear <strong>{user.Name}</strong>,
+
+        Dear <strong>{encodedName}</strong>,
+
     </p>
 
 
@@ -4012,7 +4482,8 @@ Empowering professionals with knowledge and skills.
     '>
 
         Congratulations on successfully completing the
-        <strong>{courseName}</strong> session with
+        <strong>{encodedCourseName}</strong>
+        session with
         <strong>Ecoex Academy</strong>.
 
     </p>
@@ -4025,8 +4496,8 @@ Empowering professionals with knowledge and skills.
         color:#4b5563;
     '>
 
-        Your certificate has been issued and is now available
-        for your records.
+        Your certificate has been issued and is attached to this
+        email as a PNG file for your records.
 
     </p>
 
@@ -4042,6 +4513,8 @@ Empowering professionals with knowledge and skills.
                border:1px solid #e5e7eb;
                border-radius:8px;
            '>
+
+        <!-- COURSE -->
 
         <tr>
 
@@ -4060,7 +4533,9 @@ Empowering professionals with knowledge and skills.
                     color:#111827;
                     font-weight:600;
                 '>
-                    {courseName}
+
+                    {encodedCourseName}
+
                 </div>
 
             </td>
@@ -4068,11 +4543,11 @@ Empowering professionals with knowledge and skills.
         </tr>
 
 
+        <!-- CERTIFICATE ID -->
+
         <tr>
 
-            <td style='
-                padding:0 20px 18px 20px;
-            '>
+            <td style='padding:0 20px 18px 20px;'>
 
                 <div style='
                     font-size:12px;
@@ -4087,7 +4562,9 @@ Empowering professionals with knowledge and skills.
                     color:#111827;
                     font-weight:600;
                 '>
-                    {certificateId}
+
+                    {encodedCertificateId}
+
                 </div>
 
             </td>
@@ -4095,11 +4572,11 @@ Empowering professionals with knowledge and skills.
         </tr>
 
 
+        <!-- ISSUE DATE -->
+
         <tr>
 
-            <td style='
-                padding:0 20px 18px 20px;
-            '>
+            <td style='padding:0 20px 18px 20px;'>
 
                 <div style='
                     font-size:12px;
@@ -4114,7 +4591,9 @@ Empowering professionals with knowledge and skills.
                     color:#111827;
                     font-weight:600;
                 '>
-                    {DateTime.UtcNow:dd MMMM yyyy}
+
+                    {issueDate}
+
                 </div>
 
             </td>
@@ -4124,17 +4603,39 @@ Empowering professionals with knowledge and skills.
     </table>
 
 
-    {certificateSection}
+    <!-- ATTACHMENT MESSAGE -->
+
+    <div style='
+        margin:25px 0 0 0;
+        padding:18px 20px;
+        background:#f8fafc;
+        border:1px solid #e5e7eb;
+        border-radius:8px;
+        text-align:center;
+    '>
+
+        <p style='
+            margin:0;
+            font-size:14px;
+            color:#4b5563;
+            line-height:1.6;
+        '>
+
+            📎 Your certificate is attached to this email.
+            Please download and retain it for your future reference.
+
+        </p>
+
+    </div>
 
 
     <p style='
-        margin:20px 0 0 0;
+        margin:25px 0 0 0;
         font-size:14px;
         line-height:1.7;
         color:#6b7280;
     '>
 
-        Please retain this certificate for your future reference.
         The Certificate ID can be used to verify the authenticity
         of your certificate.
 
@@ -4189,7 +4690,8 @@ Empowering professionals with knowledge and skills.
         color:#9ca3af;
     '>
 
-        © {DateTime.UtcNow.Year} Ecoex Academy. All rights reserved.
+        © {DateTime.UtcNow.Year} Ecoex Academy.
+        All rights reserved.
 
     </p>
 
@@ -4216,7 +4718,7 @@ Empowering professionals with knowledge and skills.
                 // Create Email
                 // -----------------------------------------
 
-                using var message = new MailMessage(
+                using var message = new System.Net.Mail.MailMessage(
                     fromAddress,
                     toAddress
                 );
@@ -4227,6 +4729,22 @@ Empowering professionals with knowledge and skills.
                 message.Body = htmlBody;
 
                 message.IsBodyHtml = true;
+
+
+                // -----------------------------------------
+                // Attach PNG Certificate
+                // -----------------------------------------
+
+                string attachmentFileName =
+                    $"{certificateId}.png";
+
+                using var attachment = new System.Net.Mail.Attachment(
+      fullCertificatePath,
+      new System.Net.Mime.ContentType("image/png")
+  );
+                attachment.Name = attachmentFileName; // "certificateId.png"
+
+                message.Attachments.Add(attachment);
 
 
                 // -----------------------------------------
@@ -4243,7 +4761,8 @@ Empowering professionals with knowledge and skills.
                 return new Response
                 {
                     Success = true,
-                    Message = "Certificate email sent successfully."
+                    Message =
+                        "Certificate email sent successfully with PNG attachment."
                 };
             }
             catch (Exception ex)
@@ -4255,9 +4774,6 @@ Empowering professionals with knowledge and skills.
                 };
             }
         }
-
-
-
 
     }
 

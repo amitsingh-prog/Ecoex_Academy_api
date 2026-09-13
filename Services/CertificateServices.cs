@@ -1,5 +1,6 @@
 ﻿using Ecoeex_Academy_Api.Data;
 using Ecoeex_Academy_Api.Services;
+using Ecoex_Academy_Api.DTO;
 using Ecoex_Academy_Api.Enums;
 using Ecoex_Academy_Api.Model;
 using Microsoft.EntityFrameworkCore;
@@ -310,7 +311,6 @@ namespace Ecoex_Academy_Api.Services
                                 );
                             }
 
-
                             // -----------------------------------------
                             // EMAIL FAILED
                             // -----------------------------------------
@@ -426,6 +426,333 @@ namespace Ecoex_Academy_Api.Services
         }
 
 
+        public async Task SendCertificates_userAsync(
+        int courseId,
+         List<Get_Participants> obj_participants,
+        CancellationToken cancellationToken)
+        {
+
+            using IServiceScope scope =
+                _scopeFactory.CreateScope();
+
+            var context =
+                scope.ServiceProvider
+                    .GetRequiredService<AppDbContext>();
+
+            var emailService =
+                scope.ServiceProvider
+                    .GetRequiredService<IEmail_Services>();
+
+            try
+            {
+
+                // -------------------------------------------------
+                // GET COURSES
+                // -------------------------------------------------
+
+                DateTime date = DateTime.UtcNow;
+
+
+
+
+                var courses = await context.tb_Courses
+                    .Where(x => x.CourseID == courseId)
+                    .ToListAsync(cancellationToken);
+
+                if (courses.Count == 0)
+                {
+                    _logger.LogInformation(
+                        "No courses found."
+                    );
+                    return;
+                }
+
+                foreach (var course in courses)
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                        break;
+
+                    // -------------------------------------------------
+                    // CHECK COURSE
+                    // -------------------------------------------------
+
+                    _logger.LogInformation(
+                        "Processing Course ID: {CourseId}, Name: {CourseName}",
+                        course.CourseID,
+                        course.Name
+                    );
+
+
+                    // -------------------------------------------------
+                    // GET SESSION PARTICIPANTS
+                    // -------------------------------------------------
+                    //List<Get_Participants> obj_participants,
+                    List<Get_Participants> participants = obj_participants;
+
+                    if (participants.Count == 0)
+                    {
+                        _logger.LogInformation(
+                            "No participants found for Course ID: {CourseId}",
+                            course.CourseID
+                        );
+
+                        continue;
+                    }
+
+
+                    int sent = 0;
+                    int failed = 0;
+                    int skipped = 0;
+
+
+                    // -------------------------------------------------
+                    // PROCESS EACH PARTICIPANT
+                    // -------------------------------------------------
+
+                    foreach (var sessionParticipant in participants)
+                    {
+                        if (cancellationToken.IsCancellationRequested)
+                            break;
+
+                        try
+                        {
+                            // -----------------------------------------
+                            // GET USER
+                            // -----------------------------------------
+
+                            var user =
+                                await context.tb_Users
+                                    .FirstOrDefaultAsync(
+                                        x =>
+                                            x.UserId ==
+                                            sessionParticipant.UserId,
+                                        cancellationToken
+                                    );
+
+                            if (user == null)
+                            {
+                                skipped++;
+
+                                _logger.LogWarning(
+                                    "User not found. UserId: {UserId}",
+                                    sessionParticipant.UserId
+                                );
+
+                                continue;
+                            }
+
+
+                            // -----------------------------------------
+                            // CHECK EXISTING CERTIFICATE
+                            // -----------------------------------------
+
+                            //var certificate =
+                            //    await context.tb_Certificate
+                            //        .FirstOrDefaultAsync(
+                            //            x =>
+                            //                x.ParticipantId ==
+                            //                sessionParticipant.Id
+                            //                &&
+                            //                x.CourseID ==
+                            //                course.CourseID,
+                            //            cancellationToken
+                            //        );
+
+
+                            // -----------------------------------------
+                            // ALREADY SENT
+                            // -----------------------------------------
+
+
+                            // -----------------------------------------
+                            // CREATE CERTIFICATE
+                            // -----------------------------------------
+                            var CertificateId = $"ECOEX-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"
+                                                .ToUpper();
+
+                            //if (certificate == null)
+                            //{
+                            //    certificate =
+                            //        new Certificate
+                            //        {
+                            //            ParticipantId =
+                            //                sessionParticipant.Id,
+
+                            //            CourseID =
+                            //                course.CourseID,
+
+                            //            CertificateId =
+                            //                $"ECOEX-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"
+                            //                    .ToUpper(),
+
+                            //            CertificateFilePath =
+                            //                null,
+
+                            //            IssuedAt =
+                            //                DateTime.UtcNow,
+
+                            //            CertificateEmailStatus =
+                            //                CertificateEmailStatus.Processing,
+
+                            //            CertificateEmailSentAt =
+                            //                null,
+
+                            //            CertificateEmailResponse =
+                            //                null,
+
+                            //            CreatedAt =
+                            //                DateTime.UtcNow,
+
+                            //            UpdatedAt =
+                            //                null
+                            //        };
+
+                            //    context.tb_Certificate.Add(
+                            //        certificate
+                            //    );
+                            //}
+                            //else
+                            //{
+                            //    certificate.CertificateEmailStatus =
+                            //        CertificateEmailStatus.Processing;
+
+                            //    certificate.CertificateEmailSentAt =
+                            //        null;
+
+                            //    certificate.CertificateEmailResponse =
+                            //        null;
+
+                            //    certificate.UpdatedAt =
+                            //        DateTime.UtcNow;
+                            //}
+
+
+                            // -----------------------------------------
+                            // SAVE BEFORE GENERATING
+                            // -----------------------------------------
+
+                            //await context.SaveChangesAsync(
+                            //    cancellationToken
+                            //);
+
+
+                            // -----------------------------------------
+                            // GENERATE CERTIFICATE
+                            // -----------------------------------------
+
+                            string certificatePath =
+                                await GenerateCertificateTemplate(
+                                    course.CourseID,
+                                    course.Name,
+                                    user.Name,
+                                    user.UserId,
+                                    CertificateId
+                                );
+
+
+
+
+                            await context.SaveChangesAsync(
+                                cancellationToken
+                            );
+
+
+                            // -----------------------------------------
+                            // SEND EMAIL
+                            // -----------------------------------------
+
+                            var emailResult =
+                                await emailService
+                                    .SendCertificateEmail(
+                                        user.UserId,
+                                        CertificateId,
+                                        course.Name,
+                                        certificatePath
+                                    );
+
+
+                            // -----------------------------------------
+                            // EMAIL SUCCESS
+                            // -----------------------------------------
+
+                            if (emailResult.Success)
+                            {
+
+
+                                sent++;
+
+                                _logger.LogInformation(
+                                    "Certificate sent successfully. UserId: {UserId}, CourseId: {CourseId}",
+                                    user.UserId,
+                                    course.CourseID
+                                );
+                            }
+
+
+                            // -----------------------------------------
+                            // EMAIL FAILED
+                            // -----------------------------------------
+
+                            else
+                            {
+
+
+                                failed++;
+
+                                _logger.LogWarning(
+                                    "Certificate email failed. UserId: {UserId}, CourseId: {CourseId}, Error: {Error}",
+                                    user.UserId,
+                                    course.CourseID,
+                                    emailResult.Message
+                                );
+                            }
+
+
+                            await context.SaveChangesAsync(
+                                cancellationToken
+                            );
+                        }
+                        catch (Exception ex)
+                        {
+                            failed++;
+
+                            _logger.LogError(
+                                ex,
+                                "Error processing certificate for UserId: {UserId}, CourseId: {CourseId}",
+                                sessionParticipant.UserId,
+                                course.CourseID
+                            );
+
+
+                            // -----------------------------------------
+                            // UPDATE FAILED CERTIFICATE
+                            // -----------------------------------------
+
+
+                        }
+                    }
+
+
+                    _logger.LogInformation(
+                        "Course {CourseId} certificate processing completed. Sent: {Sent}, Failed: {Failed}, Skipped: {Skipped}",
+                        course.CourseID,
+                        sent,
+                        failed,
+                        skipped
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Error while processing certificates."
+                );
+            }
+        }
+
+
+
         // =========================================================
         // GENERATE CERTIFICATE
         // =========================================================
@@ -450,10 +777,11 @@ namespace Ecoex_Academy_Api.Services
 
             // USER FOLDER
             string safeUserName = string.Join(
-                "_",
-                participantName.Split(System.IO.Path.GetInvalidFileNameChars())
-            );
+     "_",
+     participantName.Split(System.IO.Path.GetInvalidFileNameChars())
+ );
 
+            safeUserName = safeUserName.Replace(" ", "_");
             string userFolderName = $"{safeUserName}_{userId}";
 
             string certificateDirectory = System.IO.Path.Combine(
@@ -528,7 +856,7 @@ namespace Ecoex_Academy_Api.Services
                     return Math.Max(minSize, size);
                 }
 
-                using var namePaint = new SKPaint { Color = SKColors.IndianRed, IsAntialias = true };
+                using var namePaint = new SKPaint { Color = SKColors.DarkRed, IsAntialias = true };
                 using var coursePaint = new SKPaint { Color = SKColors.DarkRed, IsAntialias = true };
                 using var datePaint = new SKPaint { Color = SKColors.Black, IsAntialias = true };
                 using var certificateIdPaint = new SKPaint { Color = SKColors.Black, IsAntialias = true };

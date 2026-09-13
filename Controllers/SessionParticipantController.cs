@@ -44,6 +44,8 @@ namespace Ecoex_Academy_Api.Controllers
         // GET ALL REGISTERED USERS
         // =========================================================
 
+
+
         [HttpGet("AllRegistreredUser")]
         public async Task<IActionResult> GetAllUserDetail()
         {
@@ -53,7 +55,7 @@ namespace Ecoex_Academy_Api.Controllers
                     from participant in _context.tb_SessionParticipant
                     join user in _context.tb_Users
                         on participant.UserID equals user.UserId
-                    where participant.ReminderEmailStatus == null
+                    //   where participant.ReminderEmailStatus == null
                     select new Get_Participants
                     {
                         UserId = user.UserId,
@@ -582,7 +584,47 @@ namespace Ecoex_Academy_Api.Controllers
             }
         }
 
+        [HttpPost("send-certificate_userwise")]
+        public async Task<IActionResult> SendCertificate1(
+   [FromQuery] int courseID,
+      [FromBody] List<Get_Participants> obj_participants,
+   CancellationToken cancellationToken)
+        {
+            try
+            {
+                if (courseID <= 0)
+                {
+                    return BadRequest("Invalid Course ID.");
+                }
 
+                await _certificateServices.SendCertificates_userAsync(
+                    courseID,
+                    obj_participants,
+                    cancellationToken
+                );
+
+                return Ok(new
+                {
+                    Success = true,
+                    Message = "Certificate processing completed.",
+                    CourseID = courseID
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                return StatusCode(
+                    StatusCodes.Status499ClientClosedRequest,
+                    "Certificate processing was cancelled."
+                );
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    $"Error sending certificates: {ex.Message}"
+                );
+            }
+        }
 
 
 
