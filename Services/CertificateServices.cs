@@ -425,11 +425,10 @@ namespace Ecoex_Academy_Api.Services
             }
         }
 
-
         public async Task SendCertificates_userAsync(
-        int courseId,
-         List<Get_Participants> obj_participants,
-        CancellationToken cancellationToken)
+           int courseId,
+              List<Get_Participants> obj_participants,
+           CancellationToken cancellationToken)
         {
 
             using IServiceScope scope =
@@ -466,7 +465,6 @@ namespace Ecoex_Academy_Api.Services
                     );
                     return;
                 }
-
                 foreach (var course in courses)
                 {
                     if (cancellationToken.IsCancellationRequested)
@@ -486,7 +484,7 @@ namespace Ecoex_Academy_Api.Services
                     // -------------------------------------------------
                     // GET SESSION PARTICIPANTS
                     // -------------------------------------------------
-                    //List<Get_Participants> obj_participants,
+
                     List<Get_Participants> participants = obj_participants;
 
                     if (participants.Count == 0)
@@ -546,95 +544,108 @@ namespace Ecoex_Academy_Api.Services
                             // CHECK EXISTING CERTIFICATE
                             // -----------------------------------------
 
-                            //var certificate =
-                            //    await context.tb_Certificate
-                            //        .FirstOrDefaultAsync(
-                            //            x =>
-                            //                x.ParticipantId ==
-                            //                sessionParticipant.Id
-                            //                &&
-                            //                x.CourseID ==
-                            //                course.CourseID,
-                            //            cancellationToken
-                            //        );
+                            var certificate =
+                                await context.tb_Certificate
+                                    .FirstOrDefaultAsync(
+                                        x =>
+                                            x.ParticipantId ==
+                                            sessionParticipant.ParticipantId
+                                            &&
+                                            x.CourseID ==
+                                            course.CourseID,
+                                        cancellationToken
+                                    );
 
 
                             // -----------------------------------------
                             // ALREADY SENT
                             // -----------------------------------------
 
+                            //if (certificate != null &&
+                            //    certificate.CertificateEmailStatus ==
+                            //    CertificateEmailStatus.Sent)
+                            //{
+                            //    skipped++;
+
+                            //    _logger.LogInformation(
+                            //        "Certificate already sent. UserId: {UserId}, CourseId: {CourseId}",
+                            //        user.UserId,
+                            //        course.CourseID
+                            //    );
+
+                            //    continue;
+                            //}
+
 
                             // -----------------------------------------
                             // CREATE CERTIFICATE
                             // -----------------------------------------
-                            var CertificateId = $"ECOEX-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"
-                                                .ToUpper();
 
-                            //if (certificate == null)
-                            //{
-                            //    certificate =
-                            //        new Certificate
-                            //        {
-                            //            ParticipantId =
-                            //                sessionParticipant.Id,
+                            if (certificate == null)
+                            {
+                                certificate =
+                                    new Certificate
+                                    {
+                                        ParticipantId = sessionParticipant.ParticipantId??certificate.ParticipantId ,
 
-                            //            CourseID =
-                            //                course.CourseID,
+                                        CourseID =
+                                            course.CourseID,
 
-                            //            CertificateId =
-                            //                $"ECOEX-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"
-                            //                    .ToUpper(),
+                                        CertificateId =
+                                            $"ECOEX-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"
+                                                .ToUpper(),
 
-                            //            CertificateFilePath =
-                            //                null,
+                                        CertificateFilePath =
+                                            null,
 
-                            //            IssuedAt =
-                            //                DateTime.UtcNow,
+                                        IssuedAt =
+                                            DateTime.UtcNow,
 
-                            //            CertificateEmailStatus =
-                            //                CertificateEmailStatus.Processing,
+                                        CertificateEmailStatus =
+                                            CertificateEmailStatus.Processing,
 
-                            //            CertificateEmailSentAt =
-                            //                null,
+                                        CertificateEmailSentAt =
+                                            null,
 
-                            //            CertificateEmailResponse =
-                            //                null,
+                                        CertificateEmailResponse =
+                                            null,
 
-                            //            CreatedAt =
-                            //                DateTime.UtcNow,
+                                        CreatedAt =
+                                            DateTime.UtcNow,
 
-                            //            UpdatedAt =
-                            //                null
-                            //        };
+                                        UpdatedAt =
+                                            null
+                                    };
 
-                            //    context.tb_Certificate.Add(
-                            //        certificate
-                            //    );
-                            //}
-                            //else
-                            //{
-                            //    certificate.CertificateEmailStatus =
-                            //        CertificateEmailStatus.Processing;
+                                context.tb_Certificate.Add(
+                                    certificate
+                                );
+                            }
+                            else
+                            {
 
-                            //    certificate.CertificateEmailSentAt =
-                            //        null;
 
-                            //    certificate.CertificateEmailResponse =
-                            //        null;
+                                certificate.CertificateEmailStatus =
+                                    CertificateEmailStatus.Processing;
 
-                            //    certificate.UpdatedAt =
-                            //        DateTime.UtcNow;
-                            //}
+                                certificate.CertificateEmailSentAt =
+                                    null;
+
+                                certificate.CertificateEmailResponse =
+                                    null;
+
+                                certificate.UpdatedAt =
+                                    DateTime.UtcNow;
+                            }
 
 
                             // -----------------------------------------
                             // SAVE BEFORE GENERATING
                             // -----------------------------------------
 
-                            //await context.SaveChangesAsync(
-                            //    cancellationToken
-                            //);
-
+                            await context.SaveChangesAsync(
+                                cancellationToken
+                            );
 
                             // -----------------------------------------
                             // GENERATE CERTIFICATE
@@ -646,10 +657,12 @@ namespace Ecoex_Academy_Api.Services
                                     course.Name,
                                     user.Name,
                                     user.UserId,
-                                    CertificateId
+                                    certificate.CertificateId
                                 );
 
 
+                            certificate.CertificateFilePath =
+                                certificatePath;
 
 
                             await context.SaveChangesAsync(
@@ -665,9 +678,9 @@ namespace Ecoex_Academy_Api.Services
                                 await emailService
                                     .SendCertificateEmail(
                                         user.UserId,
-                                        CertificateId,
+                                        certificate.CertificateId,
                                         course.Name,
-                                        certificatePath
+                                        certificate.CertificateFilePath
                                     );
 
 
@@ -677,7 +690,17 @@ namespace Ecoex_Academy_Api.Services
 
                             if (emailResult.Success)
                             {
+                                certificate.CertificateEmailStatus =
+                                    CertificateEmailStatus.Sent;
 
+                                certificate.CertificateEmailSentAt =
+                                    DateTime.UtcNow;
+
+                                certificate.CertificateEmailResponse =
+                                    emailResult.Message;
+
+                                certificate.UpdatedAt =
+                                    DateTime.UtcNow;
 
                                 sent++;
 
@@ -688,14 +711,23 @@ namespace Ecoex_Academy_Api.Services
                                 );
                             }
 
-
                             // -----------------------------------------
                             // EMAIL FAILED
                             // -----------------------------------------
 
                             else
                             {
+                                certificate.CertificateEmailStatus =
+                                    CertificateEmailStatus.Failed;
 
+                                certificate.CertificateEmailSentAt =
+                                    null;
+
+                                certificate.CertificateEmailResponse =
+                                    emailResult.Message;
+
+                                certificate.UpdatedAt =
+                                    DateTime.UtcNow;
 
                                 failed++;
 
@@ -728,7 +760,49 @@ namespace Ecoex_Academy_Api.Services
                             // UPDATE FAILED CERTIFICATE
                             // -----------------------------------------
 
+                            try
+                            {
+                                var failedCertificate =
+                                    await context.tb_Certificate
+                                        .FirstOrDefaultAsync(
+                                            x =>
+                                                x.ParticipantId ==
+                                                sessionParticipant.ParticipantId
+                                                &&
+                                                x.CourseID ==
+                                                course.CourseID,
+                                            cancellationToken
+                                        );
 
+                                if (failedCertificate != null)
+                                {
+                                    failedCertificate
+                                        .CertificateEmailStatus =
+                                        CertificateEmailStatus.Failed;
+
+                                    failedCertificate
+                                        .CertificateEmailResponse =
+                                        ex.Message;
+
+                                    failedCertificate
+                                        .CertificateEmailSentAt =
+                                        null;
+
+                                    failedCertificate.UpdatedAt =
+                                        DateTime.UtcNow;
+
+                                    await context.SaveChangesAsync(
+                                        cancellationToken
+                                    );
+                                }
+                            }
+                            catch (Exception dbEx)
+                            {
+                                _logger.LogError(
+                                    dbEx,
+                                    "Could not update failed certificate status."
+                                );
+                            }
                         }
                     }
 
@@ -750,6 +824,8 @@ namespace Ecoex_Academy_Api.Services
                 );
             }
         }
+
+
 
 
 

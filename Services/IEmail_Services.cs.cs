@@ -16,8 +16,10 @@ namespace Ecoeex_Academy_Api.Services
         Task<Response> SendPaymentRejectEmailAsync(int PaymentId);
 
         Task<Response> SendZoomLinkEmail(int userId, string zoomLink, string courseName, DateTime startDateTime, DateTime? endDateTime);
+        Task<Response> SendCourse1ZoomEmail(int userId, string zoomLink, string courseName, DateTime startDateTime, DateTime? endDateTime);
         Task<Response> SendCourse2ZoomEmail(int userId, string zoomLink, string courseName, DateTime startDateTime, DateTime? endDateTime);
         Task<Response> SendCourse2ReminderEmail(int userId, DateTime StartDateTime);
+        Task<Response> SendCourse1ReminderEmail(int userId, DateTime StartDateTime, DateTime EndDateTime);
 
         Task<Response> SendCertificateEmail(int userId, string certificateId, string courseName, string? certificateFilePath);
 

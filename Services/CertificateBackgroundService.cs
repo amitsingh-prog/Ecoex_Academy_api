@@ -11,12 +11,10 @@ public class CertificateBackgroundService // : /*BackgroundService*/
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<CertificateBackgroundService> _logger;
 
-    public CertificateBackgroundService(
-        IServiceScopeFactory scopeFactory,
-        ILogger<CertificateBackgroundService> logger)
+    public CertificateBackgroundService(   IServiceScopeFactory scopeFactory,   ILogger<CertificateBackgroundService> logger)
     {
         _scopeFactory = scopeFactory;
-        _logger = logger;
+        _logger = logger;   
     }
 
     //protected override async Task ExecuteAsync(
@@ -118,4 +116,6 @@ public class CertificateBackgroundService // : /*BackgroundService*/
     //        "Certificate Background Service stopped."
     //    );
     //}
+
+
 }

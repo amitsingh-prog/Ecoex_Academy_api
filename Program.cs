@@ -7,7 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using QuestPDF.Infrastructure;
 using System.Text;
-
+using Hangfire;
+using Hangfire.Redis.StackExchange;
 var builder = WebApplication.CreateBuilder(args);
 
 
@@ -40,6 +41,7 @@ builder.Services.AddScoped<
     ICertificateServices,
     CertificateServices
 >();
+builder.Services.AddScoped<ReminderService>();
 
 builder.Services.AddScoped<CertificateBackgroundService>();
 
@@ -133,8 +135,20 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod();
     });
 });
-QuestPDF.Settings.License = LicenseType.Community; // add this line
 
+
+QuestPDF.Settings.License = LicenseType.Community;
+
+
+builder.Services.AddHangfire(config =>
+{
+    config.UseSqlServerStorage(
+        builder.Configuration.GetConnectionString("DefaultConnection"));
+});
+
+
+
+builder.Services.AddHangfireServer();
 // ============================================================
 // BUILD APPLICATION
 // ============================================================
@@ -142,7 +156,6 @@ QuestPDF.Settings.License = LicenseType.Community; // add this line
 var app = builder.Build();
 
 app.UseForwardedHeaders();
-
 app.UseSwagger();
 app.UseSwaggerUI();
 
@@ -151,6 +164,9 @@ app.UseSwaggerUI();
 // ============================================================
 
 app.UseHttpsRedirection();
+
+app.UseHangfireDashboard("/hangfire");
+
 app.UseCors("AngularApp");
 
 // ============================================================

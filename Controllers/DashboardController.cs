@@ -178,8 +178,6 @@ namespace Ecoex_Academy_Api.Controllers
                         o.Payment.Status.ToLower() == PaymentApproved);
 
 
-
-
                 // ============================================================
                 // TOTAL REGISTRATION
                 // ALL VERIFIED USERS

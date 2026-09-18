@@ -29,6 +29,7 @@ namespace Ecoeex_Academy_Api.Data
         public DbSet<tb_social_media_count> tb_social_media_count { get; set; }
         public DbSet<SessionParticipant> tb_SessionParticipant { get; set; }
         public DbSet<Certificate> tb_Certificate { get; set; }
+        public DbSet<tb_joining_reminder> tb_joining_reminder { get; set; }
 
         // Existing table
         public DbSet<tb_userdetail> tb_userdetail { get; set; }
@@ -57,6 +58,7 @@ namespace Ecoeex_Academy_Api.Data
             modelBuilder.Entity<tb_social_media_count>().ToTable("tb_social_media_count");
             modelBuilder.Entity<Certificate>().ToTable("tb_Certificates");
             modelBuilder.Entity<SessionParticipant>().ToTable("tb_SessionParticipants");
+            modelBuilder.Entity<tb_joining_reminder>().ToTable("tb_joining_reminder");
 
             // -----------------------------
             // Composite Keys
@@ -154,9 +156,20 @@ namespace Ecoeex_Academy_Api.Data
     .Property(x => x.CertificateEmailStatus)
     .HasConversion<string>();
 
+
+
+
             modelBuilder.Entity<SessionParticipant>()
-                .Property(x => x.ZoomEmailStatus)
+                  .Property(x => x.ZoomEmailStatus)
+                  .HasConversion<string>();
+
+            modelBuilder.Entity<SessionParticipant>()
+                .Property(x => x.ReminderEmailStatus)
                 .HasConversion<string>();
+
+            modelBuilder.Entity<tb_joining_reminder>()
+     .Property(x => x.ReminderEmailStatus)
+     .HasConversion<string>();
         }
     }
 }

@@ -1955,8 +1955,716 @@ Empowering professionals with knowledge and skills.
             }
         }
 
+        public async Task<Response> SendCourse1ZoomEmail(
+            int userId,
+            string zoomLink,
+            string courseName,
+            DateTime startDateTime,
+            DateTime? endDateTime)
+        {
+            const string meetingChatLink = "https://us06web.zoom.us/launch/jc/89500849904";
+
+            const string meetingId = "895 0084 9904";
+            const string passcode = "151293";
+
+            try
+            {
+                var user = await _context.tb_Users
+                 .FirstOrDefaultAsync(x => x.UserId == userId);
+
+                string formattedDate = startDateTime.ToString("dddd, dd MMMM yyyy");
+
+                string formattedStartTime = startDateTime.ToString("hh:mm tt");
+
+                string formattedTime = formattedStartTime;
+
+                using var smtp = new SmtpClient
+                {
+                    Host = "smtp-relay.brevo.com",
+                    Port = 587,
+                    EnableSsl = true,
+                    DeliveryMethod = SmtpDeliveryMethod.Network,
+                    UseDefaultCredentials = false,
+                    Credentials = new NetworkCredential(
+                        "info@ecoex.market",
+                        brevokey
+                    )
+                };
+
+                var fromAddress = new MailAddress(
+                    "info@ecoex.market",
+                    "Ecoex Academy"
+                );
+
+                var toAddress = new MailAddress(
+                    user.Email,
+                    user.Name
+                );
+
+                var htmlBody = $@"
+<!DOCTYPE html>
+<html lang='en'>
+
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Ecoex Academy - New Solid Waste Management Mandate & Circular Economy Business</title>
+</head>
+
+<body style='
+    margin:0;
+    padding:0;
+    background-color:#f3f5f7;
+    font-family:Arial, Helvetica, sans-serif;
+    color:#202124;
+'>
+
+<table width='100%'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       role='presentation'
+       style='
+           width:100%;
+           background-color:#f3f5f7;
+           padding:40px 15px;
+       '>
+
+<tr>
+<td align='center'>
+
+<table width='620'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       role='presentation'
+       style='
+           width:100%;
+           max-width:620px;
+           background-color:#ffffff;
+           border-radius:12px;
+           overflow:hidden;
+           box-shadow:0 3px 12px rgba(0,0,0,0.08);
+       '>
+
+<!-- HEADER -->
+
+<tr>
+<td style='
+    padding:28px 40px;
+    background-color:#ffffff;
+    border-bottom:1px solid #e8eaed;
+'>
+
+<div style='
+    font-size:27px;
+    font-weight:700;
+    letter-spacing:1px;
+    color:#176b3a;
+'>
+    ECOEX ACADEMY
+</div>
+
+</td>
+</tr>
 
 
+<!-- HERO -->
+
+<tr>
+<td style='
+    padding:40px 40px 30px 40px;
+    background-color:#f7fbf8;
+'>
+
+<div style='
+    display:inline-block;
+    padding:7px 12px;
+    background-color:#e2f2e8;
+    color:#176b3a;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0.8px;
+    border-radius:20px;
+'>
+    SESSION CONFIRMED
+</div>
+
+<h1 style='
+    margin:18px 0 10px 0;
+    font-size:28px;
+    line-height:1.3;
+    font-weight:700;
+    color:#202124;
+'>
+    New Solid Waste Management Mandate   &amp; Circular Economy Business Session Details
+</h1>
+
+<p style='
+    margin:0;
+    font-size:15px;
+    line-height:1.7;
+    color:#5f6368;
+'>
+    Your upcoming Ecoex Academy session is confirmed.
+    Please find the session details below.
+</p>
+
+</td>
+</tr>
+
+
+<!-- GREETING -->
+
+<tr>
+<td style='
+    padding:32px 40px 10px 40px;
+'>
+
+<p style='
+    margin:0 0 12px 0;
+    font-size:16px;
+    line-height:1.6;
+    color:#202124;
+'>
+    Dear
+    <strong>
+        {System.Net.WebUtility.HtmlEncode(user.Name)}
+    </strong>,
+</p>
+
+<p style='
+    margin:0;
+    font-size:15px;
+    line-height:1.7;
+    color:#5f6368;
+'>
+    Thank you for registering for the
+    <strong style='color:#333333;'>
+      Certification Course on  New Solid Waste Management Mandate   &amp; Circular Economy Business   for Businesses,
+    </strong>.
+  presented in collaboration with the
+    <strong> School of Planning and Architecture, New Delhi   </strong> We're pleased to share the joining details for the live virtual sessions below.
+</p>
+
+</td>
+</tr>
+
+
+<!-- COURSE DETAILS -->
+
+<tr>
+<td style='
+    padding:25px 40px 10px 40px;
+'>
+
+<table width='100%'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       role='presentation'
+       style='
+           border:1px solid #e1e6e3;
+           border-radius:10px;
+           background-color:#ffffff;
+       '>
+
+<!-- COURSE -->
+
+<tr>
+<td style='
+    padding:22px 24px;
+    border-bottom:1px solid #edf0ee;
+'>
+
+<div style='
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:1px;
+    color:#7a817d;
+    text-transform:uppercase;
+'>
+    COURSE
+</div>
+
+<div style='
+    margin-top:7px;
+    font-size:18px;
+    font-weight:700;
+    line-height:1.4;
+    color:#202124;
+'>
+    {System.Net.WebUtility.HtmlEncode(courseName)}
+</div>
+
+</td>
+</tr>
+
+
+<!-- DATE -->
+
+<tr>
+<td style='
+    padding:20px 24px;
+    border-bottom:1px solid #edf0ee;
+'>
+
+<table width='100%'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       role='presentation'>
+
+<tr>
+
+<td width='45' valign='top'>
+
+<div style='
+    width:34px;
+    height:34px;
+    line-height:34px;
+    text-align:center;
+    background-color:#e8f4ec;
+    border-radius:7px;
+    font-size:16px;
+'>
+    📅
+</div>
+
+</td>
+
+<td valign='middle'>
+
+<div style='
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0.8px;
+    color:#7a817d;
+'>
+    DATE
+</div>
+
+<div style='
+    margin-top:4px;
+    font-size:15px;
+    font-weight:600;
+    color:#202124;
+'>
+19–20 September 2026
+
+</div>
+
+</td>
+
+</tr>
+
+</table>
+
+</td>
+</tr>
+
+
+<!-- TIME -->
+
+<tr>
+<td style='
+    padding:20px 24px;
+'>
+
+<table width='100%'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       role='presentation'>
+
+<tr>
+
+<td width='45' valign='top'>
+
+<div style='
+    width:34px;
+    height:34px;
+    line-height:34px;
+    text-align:center;
+    background-color:#e8f4ec;
+    border-radius:7px;
+    font-size:16px;
+'>
+    🕐
+</div>
+
+</td>
+
+<td valign='middle'>
+
+<div style='
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0.8px;
+    color:#7a817d;
+'>
+    START TIME
+</div>
+
+<div style='
+    margin-top:4px;
+    font-size:15px;
+    font-weight:600;
+    color:#202124;
+'>
+    11:00 AM – 1:00 PM (IST)
+</div>
+
+</td>
+
+</tr>
+
+</table>
+
+</td>
+</tr>
+
+</table>
+
+</td>
+</tr>
+
+
+<!-- ZOOM -->
+
+<tr>
+<td style='
+    padding:30px 40px;
+'>
+
+<table width='100%'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       role='presentation'
+       style='
+           background-color:#176b3a;
+           border-radius:10px;
+       '>
+
+<tr>
+
+<td align='center'
+    style='padding:30px 25px;'>
+
+<div style='
+    font-size:19px;
+    font-weight:700;
+    color:#ffffff;
+'>
+    Ready to Join?
+</div>
+
+<p style='
+    margin:9px 0 22px 0;
+    font-size:14px;
+    line-height:1.6;
+    color:#dcefe3;
+'>
+    Join the  New Solid Waste Management Mandate   &amp; Circular Economy Business  session using the
+    Zoom meeting link below.
+</p>
+
+<table cellpadding='0'
+       cellspacing='0'
+       border='0'
+       role='presentation'>
+
+<tr>
+
+<td align='center'
+    style='
+        background-color:#ffffff;
+        border-radius:6px;
+    '>
+
+<a href='{System.Net.WebUtility.HtmlEncode(zoomLink)}'
+   style='
+       display:inline-block;
+       padding:14px 30px;
+       color:#176b3a;
+       text-decoration:none;
+       font-size:15px;
+       font-weight:700;
+   '>
+    JOIN SESSION
+</a>
+
+</td>
+
+</tr>
+
+</table>
+
+</td>
+</tr>
+
+</table>
+
+</td>
+</tr>
+<!-- MEETING DETAILS -->
+
+<tr>
+    <td style='
+        padding:0 40px 25px 40px;
+    '>
+
+        <table width='100%'
+               cellpadding='0'
+               cellspacing='0'
+               border='0'
+               role='presentation'
+               style='
+                   border:1px solid #e1e6e3;
+                   border-radius:10px;
+                   background-color:#ffffff;
+               '>
+
+            <tr>
+                <td style='padding:22px 24px;'>
+
+                    <div style='
+                        font-size:14px;
+                        font-weight:700;
+                        color:#202124;
+                        margin-bottom:15px;
+                    '>
+                        Zoom Meeting Details
+                    </div>
+
+                    <div style='
+                        font-size:13px;
+                        line-height:1.9;
+                        color:#5f6368;
+                    '>
+
+                        <strong style='color:#333333;'>
+                            Meeting ID:
+                        </strong>
+                        {meetingId}
+                        <br>
+
+                        <strong style='color:#333333;'>
+                            Passcode:
+                        </strong>
+                        {passcode}
+                        <br>
+
+                        <strong style='color:#333333;'>
+                            Meeting Chat:
+                        </strong>
+                        <a href='{meetingChatLink}'
+                           style='
+                               color:#176b3a;
+                               font-weight:600;
+                               text-decoration:none;
+                           '>
+                            Join Meeting Chat
+                        </a>
+
+                    </div>
+
+                </td>
+            </tr>
+
+        </table>
+
+    </td>
+</tr>
+
+<!-- INSTRUCTIONS -->
+
+<tr>
+<td style='
+    padding:0 40px 30px 40px;
+'>
+
+<table width='100%'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       role='presentation'
+       style='
+           background-color:#f8f9fa;
+           border-radius:8px;
+       '>
+
+<tr>
+
+<td style='
+    padding:22px 24px;
+'>
+
+<div style='
+    font-size:14px;
+    font-weight:700;
+    color:#202124;
+    margin-bottom:12px;
+'>
+    Before You Join
+</div>
+
+<div style='
+    font-size:13px;
+    line-height:1.8;
+    color:#5f6368;
+'>
+
+• Please join 10 minutes prior to the session start time.</strong>.<br>
+
+• Ensure a stable internet connection for an uninterrupted experience.<br>
+
+• Keep your microphone muted unless speaking, and feel free to use the chat/Q&A for questions.<br>
+
+• Attendance across both days is required to be eligible for the certificate.
+
+</div>
+
+</td>
+
+</tr>
+
+</table>
+
+</td>
+</tr>
+
+
+<!-- CLOSING -->
+
+<tr>
+<td style='
+    padding:5px 40px 35px 40px;
+'>
+
+<p style='
+    margin:0;
+    font-size:14px;
+    line-height:1.7;
+    color:#5f6368;
+'>
+    We look forward to having you with us.
+</p>
+
+<p style='
+    margin:18px 0 0 0;
+    font-size:14px;
+    line-height:1.6;
+    color:#202124;
+'>
+    Best regards,<br>
+    <strong>Ecoex Academy Team</strong><br>
+  8414805229
+</p>
+
+</td>
+</tr>
+
+
+<!-- FOOTER -->
+
+<tr>
+
+<td align='center'
+    style='
+        padding:28px 35px;
+        background-color:#f5f6f5;
+        border-top:1px solid #e6e8e6;
+    '>
+
+<div style='
+    font-size:14px;
+    font-weight:700;
+    color:#333333;
+'>
+    ECOEX ACADEMY
+</div>
+
+<div style='
+    margin-top:7px;
+    font-size:12px;
+    color:#777777;
+'>
+    Sustainability • Circular Economy • ESG
+</div>
+
+<div style='
+    margin-top:15px;
+    font-size:11px;
+    color:#999999;
+'>
+    This is an automated communication from
+    Ecoex Academy. 
+  
+</div>
+
+<div style='
+    margin-top:10px;
+    font-size:11px;
+    color:#aaaaaa;
+'>
+    © {DateTime.Now.Year} Ecoex Academy.
+    All rights reserved.
+</div>
+
+</td>
+
+</tr>
+
+</table>
+
+</td>
+</tr>
+
+</table>
+
+</body>
+</html>";
+
+                using var message = new MailMessage(
+                    fromAddress,
+                    toAddress
+                );
+
+                message.Subject =
+                    "Zoom Link & Joining Details – New SWM Mandate & Circular Economy Business Certification Course (19–20 Sept 2026)";
+
+                message.Body = htmlBody;
+                message.IsBodyHtml = true;
+
+                message.Headers.Add(
+                    "X-Mailer",
+                    "Ecoex Academy"
+                );
+
+                message.Headers.Add(
+                    "X-Auto-Response-Suppress",
+                    "All"
+                );
+
+                await smtp.SendMailAsync(message);
+
+                return new Response
+                {
+                    Success = true,
+                    Message = "ESG & BRSR Zoom link email sent successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                return new Response
+                {
+                    Success = false,
+                    Message = ex.Message
+                };
+            }
+        }
         public async Task<Response> SendCourse2ZoomEmail(
             int userId,
             string zoomLink,
@@ -2671,11 +3379,14 @@ Empowering professionals with knowledge and skills.
 
         public async Task<Response> SendCourse2ReminderEmail(
             int userId,
-            DateTime StartDateTime)
+            DateTime startDateTime)
         {
             try
             {
-                // Get user
+                // -----------------------------------------
+                // Get User
+                // -----------------------------------------
+
                 var user = await _context.tb_Users
                     .FirstOrDefaultAsync(x => x.UserId == userId);
 
@@ -2697,28 +3408,30 @@ Empowering professionals with knowledge and skills.
                     };
                 }
 
-                // Calculate remaining time
-                TimeSpan remainingTime =
-                    StartDateTime - DateTime.Now;
+                // -----------------------------------------
+                // Dynamic Date & Time
+                // -----------------------------------------
 
-                string reminderText;
-
-                reminderText = "Your session starts at 11 Am  ";
-
-
-
-                // Format date and time
                 string formattedDate =
-                    StartDateTime.ToString("dddd, dd MMMM yyyy");
+                    startDateTime.ToString("dddd, dd MMMM yyyy");
 
                 string formattedTime =
-                    StartDateTime.ToString("hh:mm tt");
+                    startDateTime.ToString("hh:mm tt");
 
-                // Encode user name
+                string reminderText =
+                    $"Your session starts at {formattedTime} on {formattedDate}";
+
+                // -----------------------------------------
+                // Encode User Name
+                // -----------------------------------------
+
                 string encodedName =
                     System.Net.WebUtility.HtmlEncode(user.Name);
 
-                // SMTP configuration
+                // -----------------------------------------
+                // SMTP Configuration
+                // -----------------------------------------
+
                 using var smtp = new SmtpClient
                 {
                     Host = "smtp-relay.brevo.com",
@@ -2739,7 +3452,10 @@ Empowering professionals with knowledge and skills.
                     user.Email,
                     user.Name);
 
-                // Simple reminder email
+                // -----------------------------------------
+                // Email Body
+                // -----------------------------------------
+
                 var htmlBody = $@"
 <!DOCTYPE html>
 <html lang='en'>
@@ -2885,7 +3601,7 @@ Empowering professionals with knowledge and skills.
     font-weight:600;
     color:#202124;
 '>
-   Sunday , 13 September
+    {formattedDate}
 </div>
 
 </td>
@@ -3022,13 +3738,16 @@ Empowering professionals with knowledge and skills.
 </body>
 </html>";
 
-                // Create email
+                // -----------------------------------------
+                // Create Email
+                // -----------------------------------------
+
                 using var message = new MailMessage(
                     fromAddress,
                     toAddress);
 
                 message.Subject =
-                    $"Reminder | ESG & BRSR – {reminderText}";
+                    $"Reminder | ESG & BRSR – {formattedDate} {formattedTime}";
 
                 message.Body = htmlBody;
                 message.IsBodyHtml = true;
@@ -3041,7 +3760,10 @@ Empowering professionals with knowledge and skills.
                     "X-Auto-Response-Suppress",
                     "All");
 
-                // Send email
+                // -----------------------------------------
+                // Send Email
+                // -----------------------------------------
+
                 await smtp.SendMailAsync(message);
 
                 return new Response
@@ -3060,6 +3782,460 @@ Empowering professionals with knowledge and skills.
                 };
             }
         }
+
+
+        public async Task<Response> SendCourse1ReminderEmail(
+            int userId,
+            DateTime sessionStartDateTime,
+            DateTime sessionEndDateTime)
+        {
+            try
+            {
+                // -----------------------------------------
+                // Get User
+                // -----------------------------------------
+
+                var user = await _context.tb_Users
+                    .FirstOrDefaultAsync(x => x.UserId == userId);
+
+                if (user == null)
+                {
+                    return new Response
+                    {
+                        Success = false,
+                        Message = "User not found."
+                    };
+                }
+
+                if (string.IsNullOrWhiteSpace(user.Email))
+                {
+                    return new Response
+                    {
+                        Success = false,
+                        Message = "User email address is not available."
+                    };
+                }
+
+                // -----------------------------------------
+                // Dynamic Date & Time
+                // -----------------------------------------
+
+                string formattedDate =
+                    sessionStartDateTime.ToString("dddd, dd MMMM yyyy");
+
+                string formattedStartTime =
+                    sessionStartDateTime.ToString("hh:mm tt");
+
+                string formattedEndTime =
+                    sessionEndDateTime.ToString("hh:mm tt");
+
+                string formattedSessionTime =
+                    $"{formattedStartTime} - {formattedEndTime} (IST)";
+
+                string reminderText =
+                    $"Reminder: Your session is scheduled for {formattedDate}";
+
+                // -----------------------------------------
+                // Encode User Name
+                // -----------------------------------------
+
+                string encodedName =
+                    System.Net.WebUtility.HtmlEncode(user.Name);
+
+                // -----------------------------------------
+                // SMTP Configuration
+                // -----------------------------------------
+
+                using var smtp = new SmtpClient
+                {
+                    Host = "smtp-relay.brevo.com",
+                    Port = 587,
+                    EnableSsl = true,
+                    DeliveryMethod = SmtpDeliveryMethod.Network,
+                    UseDefaultCredentials = false,
+                    Credentials = new NetworkCredential(
+                        "info@ecoex.market",
+                        brevokey)
+                };
+
+                var fromAddress = new MailAddress(
+                    "info@ecoex.market",
+                    "Ecoex Academy");
+
+                var toAddress = new MailAddress(
+                    user.Email,
+                    user.Name);
+
+                // -----------------------------------------
+                // Email Body
+                // -----------------------------------------
+
+                var htmlBody = $@"
+<!DOCTYPE html>
+<html lang='en'>
+
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport'
+          content='width=device-width, initial-scale=1.0'>
+
+    <title>Ecoex Academy - Session Reminder</title>
+</head>
+
+<body style='
+    margin:0;
+    padding:0;
+    background-color:#f3f5f7;
+    font-family:Arial, Helvetica, sans-serif;
+    color:#202124;
+'>
+
+<table width='100%'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       style='
+           width:100%;
+           background-color:#f3f5f7;
+           padding:40px 15px;
+       '>
+
+<tr>
+<td align='center'>
+
+<table width='600'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       style='
+           width:100%;
+           max-width:600px;
+           background-color:#ffffff;
+           border-radius:12px;
+           overflow:hidden;
+       '>
+
+<!-- ========================================= -->
+<!-- HEADER -->
+<!-- ========================================= -->
+
+<tr>
+<td style='
+    padding:25px 35px;
+    border-bottom:1px solid #e8eaed;
+'>
+
+<div style='
+    font-size:24px;
+    font-weight:700;
+    letter-spacing:1px;
+    color:#176b3a;
+'>
+    ECOEX ACADEMY
+</div>
+
+</td>
+</tr>
+
+
+<!-- ========================================= -->
+<!-- CONTENT -->
+<!-- ========================================= -->
+
+<tr>
+<td style='padding:40px 35px;'>
+
+
+<!-- REMINDER LABEL -->
+
+<div style='
+    display:inline-block;
+    padding:7px 12px;
+    background-color:#e2f2e8;
+    color:#176b3a;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0.8px;
+    border-radius:20px;
+'>
+    SESSION REMINDER
+</div>
+
+
+<!-- REMINDER HEADING -->
+
+<h1 style='
+    margin:20px 0 15px 0;
+    font-size:27px;
+    line-height:1.3;
+    color:#202124;
+'>
+    {reminderText}
+</h1>
+
+
+<!-- GREETING -->
+
+<p style='
+    margin:0 0 25px 0;
+    font-size:15px;
+    line-height:1.7;
+    color:#5f6368;
+'>
+    Dear <strong style='color:#202124;'>{encodedName}</strong>,
+</p>
+
+
+<!-- COURSE INFORMATION -->
+
+<p style='
+    margin:0 0 25px 0;
+    font-size:15px;
+    line-height:1.7;
+    color:#5f6368;
+'>
+    This is a reminder that your
+    <strong style='color:#333333;'>
+        Certification Course on New Solid Waste Management Mandate &amp; Circular Economy Business
+    </strong>
+    session is scheduled for:
+</p>
+
+
+<!-- ========================================= -->
+<!-- SESSION INFO -->
+<!-- ========================================= -->
+
+<table width='100%'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       style='
+           background-color:#f7fbf8;
+           border:1px solid #e1e6e3;
+           border-radius:8px;
+       '>
+
+<!-- DATE -->
+
+<tr>
+<td style='padding:18px 20px;'>
+
+<div style='
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0.8px;
+    color:#7a817d;
+'>
+    DATE
+</div>
+
+<div style='
+    margin-top:5px;
+    font-size:16px;
+    font-weight:600;
+    color:#202124;
+'>
+    {formattedDate}
+</div>
+
+</td>
+</tr>
+
+
+<!-- SESSION TIME -->
+
+<tr>
+<td style='
+    padding:0 20px 18px 20px;
+'>
+
+<div style='
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0.8px;
+    color:#7a817d;
+'>
+    SESSION TIME
+</div>
+
+<div style='
+    margin-top:5px;
+    font-size:16px;
+    font-weight:600;
+    color:#202124;
+'>
+    {formattedSessionTime}
+</div>
+
+</td>
+</tr>
+
+</table>
+
+
+<!-- ========================================= -->
+<!-- REMINDER MESSAGE -->
+<!-- ========================================= -->
+
+<table width='100%'
+       cellpadding='0'
+       cellspacing='0'
+       border='0'
+       style='margin-top:25px;'>
+
+<tr>
+<td style='
+    padding:18px 20px;
+    background-color:#f8f9fa;
+    border-radius:8px;
+'>
+
+<p style='
+    margin:0;
+    font-size:14px;
+    line-height:1.7;
+    color:#5f6368;
+'>
+    Please be ready and join the session on time.
+    The Zoom meeting details and joining link were
+    already shared with you in the previous email.
+</p>
+
+</td>
+</tr>
+
+</table>
+
+
+<!-- CLOSING -->
+
+<p style='
+    margin:30px 0 0 0;
+    font-size:14px;
+    line-height:1.7;
+    color:#5f6368;
+'>
+    We look forward to seeing you in the session.
+</p>
+
+
+<p style='
+    margin:20px 0 0 0;
+    font-size:14px;
+    line-height:1.6;
+    color:#202124;
+'>
+    Best regards,<br>
+    <strong>Ecoex Academy Team</strong>
+</p>
+
+</td>
+</tr>
+
+
+<!-- ========================================= -->
+<!-- FOOTER -->
+<!-- ========================================= -->
+
+<tr>
+<td align='center'
+    style='
+        padding:25px 30px;
+        background-color:#f5f6f5;
+        border-top:1px solid #e6e8e6;
+    '>
+
+<div style='
+    font-size:14px;
+    font-weight:700;
+    color:#333333;
+'>
+    ECOEX ACADEMY
+</div>
+
+<div style='
+    margin-top:7px;
+    font-size:12px;
+    color:#777777;
+'>
+    Sustainability • Circular Economy • Waste Management
+</div>
+
+<div style='
+    margin-top:12px;
+    font-size:11px;
+    color:#999999;
+'>
+    This is an automated communication from Ecoex Academy.
+</div>
+
+</td>
+</tr>
+
+</table>
+
+</td>
+</tr>
+
+</table>
+
+</body>
+</html>";
+
+
+                // -----------------------------------------
+                // Create Email
+                // -----------------------------------------
+
+                using var message = new MailMessage(
+                    fromAddress,
+                    toAddress);
+
+                message.Subject =
+                    $"Reminder | New Solid Waste Management Mandate & Circular Economy Business – {formattedDate}";
+
+                message.Body = htmlBody;
+
+                message.IsBodyHtml = true;
+
+                message.Headers.Add(
+                    "X-Mailer",
+                    "Ecoex Academy");
+
+                message.Headers.Add(
+                    "X-Auto-Response-Suppress",
+                    "All");
+
+
+                // -----------------------------------------
+                // Send Email
+                // -----------------------------------------
+
+                await smtp.SendMailAsync(message);
+
+
+                // -----------------------------------------
+                // Success
+                // -----------------------------------------
+
+                return new Response
+                {
+                    Success = true,
+                    Message =
+                        "New Solid Waste Management Mandate & Circular Economy Business reminder email sent successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                return new Response
+                {
+                    Success = false,
+                    Message = ex.Message
+                };
+            }
+        }
+
 
 
         public async Task<Response> SendZoomLinkEmail(
@@ -3813,7 +4989,6 @@ Empowering professionals with knowledge and skills.
                 };
             }
         }
-
 
 
         //        public async Task<Response> SendCertificateEmail(int userId, string certificateId, string courseName, string? certificateFilePath)

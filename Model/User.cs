@@ -17,6 +17,7 @@ namespace Ecoeex_Academy_Api.Model
         public bool EmailVerified { get; set; }
         public bool MobileVerified { get; set; }
         public DateTime CreatedAt { get; set; }
+        public int temp_c { get; set; }
 
         public ICollection<Order> Orders { get; set; } = new List<Order>();
         public ICollection<Enrollment> Enrollments { get; set; } = new List<Enrollment>();

@@ -1,0 +1,9 @@
+bin/
+obj/
+.vs/
+.git/
+*.user
+*.suo
+*.csproj.user
+TestResults/
+node_modules/
