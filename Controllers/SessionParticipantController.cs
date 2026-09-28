@@ -344,7 +344,6 @@ namespace Ecoex_Academy_Api.Controllers
             {
                 return BadRequest("Invalid Course ID.");
             }
-
             try
             {
                 // -------------------------------------------------
@@ -623,6 +622,8 @@ namespace Ecoex_Academy_Api.Controllers
             }
         }
 
+
+
         [HttpPost("schedule-reminder")]
         public async Task<IActionResult> ScheduleReminder(
             [FromQuery] int courseID)
@@ -758,6 +759,141 @@ namespace Ecoex_Academy_Api.Controllers
             }
         }
 
+        [HttpPost("schedule-reminder_userID")]
+        public async Task<IActionResult> ScheduleReminder(
+       [FromQuery] int courseID, [FromQuery] int Userid)
+        {
+            if (courseID <= 0)
+            {
+                return BadRequest("Invalid Course ID.");
+            }
+            try
+            {
+                // -----------------------------------------
+                // Check Course
+                // -----------------------------------------
+
+                var course = await _context.tb_Courses
+                    .FirstOrDefaultAsync(x => x.CourseID == courseID);
+
+                if (course == null)
+                {
+                    return NotFound(
+                        $"Course with ID {courseID} not found.");
+                }
+
+                // -----------------------------------------
+                // Get registered users
+                // -----------------------------------------
+
+                var participants = await (
+                    from participant in _context.tb_SessionParticipant
+                    join user in _context.tb_Users
+                        on participant.UserID equals user.UserId
+                    where participant.CourseID == courseID && participant.UserID == Userid
+                    select new
+                    {
+                        UserId = user.UserId,
+                        ParticipantId = participant.Id,
+                        Email = user.Email
+                    }
+                ).ToListAsync();
+
+                if (participants.Count == 0)
+                {
+                    return NotFound(
+                        $"No registered participants found for Course ID {courseID}.");
+                }
+
+                // -----------------------------------------
+                // Calculate reminder times
+                // -----------------------------------------
+
+                var indiaTimeZone =
+                    TimeZoneInfo.FindSystemTimeZoneById(
+                        "India Standard Time");
+
+                var nowIndia = TimeZoneInfo.ConvertTimeFromUtc(
+                    DateTime.UtcNow,
+                    indiaTimeZone);
+
+                //// Tomorrow 10:00 AM
+                //var tomorrow10AM = nowIndia.Date
+                //    .AddDays(1)
+                //    .AddHours(10);
+
+                //// Day after tomorrow 10:00 AM
+                //var dayAfterTomorrow10AM = nowIndia.Date
+                //    .AddDays(2)
+                //    .AddHours(10);
+
+                // First reminder → 2:22 PM today
+                var reminder1 = nowIndia.Date
+                    .AddDays(1)
+                    .AddHours(10);
+
+                // Second reminder → 2:24 PM today
+                var reminder2 = nowIndia.Date
+                    .AddDays(2)
+                    .AddHours(10);
+
+                // -----------------------------------------
+                // Schedule jobs
+                // -----------------------------------------
+
+                int scheduled = 0;
+
+                foreach (var participant in participants)
+                {
+                    if (string.IsNullOrWhiteSpace(participant.Email))
+                    {
+                        continue;
+                    }
+
+                    // Reminder #1 → Session 1
+                    BackgroundJob.Schedule<ReminderService>(
+                        service => service.SendScheduledReminder(
+                            participant.UserId,
+                            participant.ParticipantId,
+                            courseID,
+                            new DateTime(2026, 9, 19, 11, 0, 0),
+                            new DateTime(2026, 9, 19, 13, 0, 0)
+                        ),
+                        reminder1 - nowIndia
+                    );
+
+                    // Reminder #2 → Session 2
+                    BackgroundJob.Schedule<ReminderService>(
+                        service => service.SendScheduledReminder(
+                            participant.UserId,
+                            participant.ParticipantId,
+                            courseID,
+                            new DateTime(2026, 9, 20, 11, 0, 0),
+                            new DateTime(2026, 9, 20, 13, 0, 0)
+                        ),
+                        reminder2 - nowIndia
+                    );
+
+                    scheduled++;
+                }
+
+                return Ok(new
+                {
+                    Success = true,
+                    Message = "Reminder jobs scheduled successfully.",
+                    CourseID = courseID,
+                    Participants = scheduled,
+                    Reminder1 = reminder1,
+                    Reminder2 = reminder2
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    $"Error scheduling reminders: {ex.Message}");
+            }
+        }
 
         //        [HttpPost("send-certificate_Again_To_Sameuser")]
         //        public async Task<IActionResult> SendCertificate2(

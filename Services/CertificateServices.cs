@@ -102,7 +102,6 @@ namespace Ecoex_Academy_Api.Services
                     int failed = 0;
                     int skipped = 0;
 
-
                     // -------------------------------------------------
                     // PROCESS EACH PARTICIPANT
                     // -------------------------------------------------
@@ -586,7 +585,7 @@ namespace Ecoex_Academy_Api.Services
                                 certificate =
                                     new Certificate
                                     {
-                                        ParticipantId = sessionParticipant.ParticipantId??certificate.ParticipantId ,
+                                        ParticipantId = sessionParticipant.ParticipantId ?? certificate.ParticipantId,
 
                                         CourseID =
                                             course.CourseID,
